@@ -93,6 +93,8 @@ public class friendRequestFragment extends Fragment implements FriendRequestAdap
 
     @Override
     public void onAcceptClicked(Request request) {
+        EncryptionDB encryptionDB = new EncryptionDB(this.getContext());
+        encryptionDB.insert(request.getSenderUid() , request.getEncryptionKey());
         DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(request.getSenderUid());
         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override

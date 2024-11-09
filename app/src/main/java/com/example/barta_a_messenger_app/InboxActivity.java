@@ -20,6 +20,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Bundle;
 
+import android.util.Log;
 import android.view.View;
 
 import android.widget.EditText;
@@ -75,6 +76,7 @@ public class InboxActivity extends AppCompatActivity {
     ValueEventListener chatListener,otherChatListener;
     ChatAdapter chatAdapter;
     String messageSenderName,senderName;
+    private EncryptionDB encryptionDB;
 
     String decryptedmessage,decryptedmessagenotification,encryptedMessage;
 
@@ -82,7 +84,7 @@ public class InboxActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_inbox);
-
+        encryptionDB = new EncryptionDB(InboxActivity.this);
         userName = findViewById(R.id.userName);
         userName.setText(getIntent().getStringExtra("Name").toString());
          DP = findViewById(R.id.headImageView);
@@ -162,9 +164,11 @@ public class InboxActivity extends AppCompatActivity {
                         message.setIsNotified("yes");
 
                         try{
-                            decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106",message.getMessage());
+                            String encryptedKey = encryptionDB.getFriendKey(senderId); // database এ রিসিভার আইডির রেসপেক্ট এ encryption key সেভ করা আছে
+                            decryptedmessage = CryptoHelper.decrypt(encryptedKey , message.getMessage());
+                            Toast.makeText(InboxActivity.this, decryptedmessage , Toast.LENGTH_SHORT).show();
                         } catch (Exception e) {
-                            throw new RuntimeException(e);
+                            Toast.makeText(InboxActivity.this, "Decryption failed", Toast.LENGTH_SHORT).show();
                         }
 
                         message.setMessage(decryptedmessage);
@@ -225,9 +229,11 @@ public class InboxActivity extends AppCompatActivity {
                                                         messageSenderName = ds.child("username").getValue(String.class);
 
                                                         try{
-                                                            decryptedmessagenotification = CryptoHelper.decrypt("H@rrY_p0tter_106",message.getMessage());
+                                                            String key = encryptionDB.getFriendKey(senderId);
+                                                            decryptedmessagenotification = CryptoHelper.decrypt(key,message.getMessage());
+                                                            Toast.makeText(InboxActivity.this, decryptedmessagenotification , Toast.LENGTH_SHORT).show();
                                                         } catch (Exception e) {
-                                                            throw new RuntimeException(e);
+                                                            Toast.makeText(InboxActivity.this, "Decryption failed", Toast.LENGTH_SHORT).show();
                                                         }
 
 
@@ -290,10 +296,11 @@ public class InboxActivity extends AppCompatActivity {
                 if(!message.isEmpty()){
 
                     try {
-                        encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106",message);
-
+                        String encryptionKey = encryptionDB.getFriendKey(receiverId);
+                        encryptedMessage = CryptoHelper.encrypt(encryptionKey , message);
+                        // ekhane change korte hobe
                     } catch (Exception e) {
-                        throw new RuntimeException(e);
+                        Toast.makeText(InboxActivity.this, "Encryption failed", Toast.LENGTH_SHORT).show();
                     }
 
                     MessageModel model;

@@ -7,15 +7,26 @@ public class Request {
     private String receiverUid;
     private String status;
 
+    public String getEncryptionKey() {
+        return encryptionKey;
+    }
+
+    public void setEncryptionKey(String encryptionKey) {
+        this.encryptionKey = encryptionKey;
+    }
+
+    private String encryptionKey;
+
     public Request() {
     }
 
-    public Request(String name, String phone, String senderUid, String receiverUid, String status) {
+    public Request(String name, String phone, String senderUid, String receiverUid, String status , String Key) {
         this.name = name;
         this.phone = phone;
         this.senderUid = senderUid;
         this.receiverUid = receiverUid;
         this.status = status;
+        this.encryptionKey = Key;
     }
 
     public String getPhone() {

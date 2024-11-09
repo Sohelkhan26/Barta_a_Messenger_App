@@ -5,6 +5,7 @@ import android.util.Base64;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.security.Security;
 
 import javax.crypto.Cipher;
@@ -38,5 +39,11 @@ public class CryptoHelper {
 
         byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
         return new String(decryptedBytes, StandardCharsets.UTF_8);
+    }
+
+    public static String generateUniqueKey() {
+        byte[] key = new byte[16]; // 128-bit key
+        new SecureRandom().nextBytes(key);
+        return Base64.encodeToString(key, Base64.DEFAULT);
     }
 }

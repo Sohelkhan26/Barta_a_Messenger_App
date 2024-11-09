@@ -68,3 +68,10 @@ public class BaseActivity extends AppCompatActivity {
         });
     }
 }
+
+/*
+* Updates status of the user. If the current user exists in other user's contact list, they are also updated
+* But where it is being called from?
+* corresponding xml file is empty
+* মনে হচ্ছে এই activity function এর মতো করে কল্ করা হইছে
+* */

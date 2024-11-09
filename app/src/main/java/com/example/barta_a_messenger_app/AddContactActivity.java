@@ -74,7 +74,8 @@ public class AddContactActivity extends AppCompatActivity {
 
                         @Override
                         public void onDataChange(@NonNull DataSnapshot snapshot) {
-                            String phone_numb = snapshot.child("phone").getValue().toString();
+                            String phone_numb = snapshot.child("phone").getValue().toString(); // how does it retrieve the phone number from the database?
+                            // এই নাম্বার দিয়ে যদি কোন ইউজার আগে সাইন আপ করে থাকে তাহলে ফ্রেন্ড রিকোয়েস্ট পাঠানো যাবে
                             if (!phone_numb.equals(phone)){
                                 databaseReference.child("All Accounts").child(phone).addListenerForSingleValueEvent(new ValueEventListener() {
                                     @Override
@@ -85,8 +86,6 @@ public class AddContactActivity extends AppCompatActivity {
                                         }
                                         else {
                                             Toast.makeText(AddContactActivity.this, "Phone number doesn't exists", Toast.LENGTH_SHORT).show();
-
-
                                         }
                                     }
                                     @Override
@@ -126,15 +125,19 @@ public class AddContactActivity extends AppCompatActivity {
 
 
 
-    private void saveContact(String contact_uid) {
+    private void saveContact(String contact_uid) { // contact_uid ই রিসিভার আইডি
 //        Contact contact = new Contact(fname,phone,contact_uid,"");
 //        databaseReference.child("Contacts").child(uid).child(phone).setValue(contact);
 //        name.setText("");
 //        phone_number.setText("");
 
-        Request request = new Request("",phone,uid,contact_uid,"pending");
 
-        databaseReference.child("FriendRequestPending").child(contact_uid).child(uid).setValue(request);
+        EncryptionDB encryptionDB = new EncryptionDB(this);
+        String encryptionKey = encryptionDB.addFriendKey(contact_uid);
+
+        Request request = new Request("",phone,uid,contact_uid,"pending" , encryptionKey);
+
+        databaseReference.child("FriendRequestPending").child(contact_uid).child(uid).setValue(request); // uid মনে হয় রিসিভার এর আইডি
 
         phone_number.setText("");
 
