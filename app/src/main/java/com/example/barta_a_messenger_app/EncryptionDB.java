@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -25,7 +26,7 @@ public class EncryptionDB extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase sqLiteDatabase) {
         // surround with try catch block in the future
-        String createTableStatement = "CREATE TABLE " + TABLE_NAME + " (" + COLUMN_FRIEND_ID + " TEXT PRIMARY KEY, " + COLUMN_ENCRYPTION_KEY + " TEXT)"; // Text datatype ম্যাক্স কত লেংথ এর হয়? সাইজ এক্সিড করলে এরর দিবে না তো?
+        String createTableStatement = "CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (" + COLUMN_FRIEND_ID + " TEXT PRIMARY KEY, " + COLUMN_ENCRYPTION_KEY + " TEXT)"; // Text datatype ম্যাক্স কত লেংথ এর হয়? সাইজ এক্সিড করলে এরর দিবে না তো?
         try {
             sqLiteDatabase.execSQL(createTableStatement);
         } catch (SQLException e) {
@@ -40,12 +41,16 @@ public class EncryptionDB extends SQLiteOpenHelper {
     }
     public String addFriendKey(String friendId) {
         SQLiteDatabase sqLiteDatabase = this.getWritableDatabase();
+        if (!isTableExists(sqLiteDatabase, TABLE_NAME)) {
+            onCreate(sqLiteDatabase);
+        }
         String encryptionKey = CryptoHelper.generateUniqueKey(); // This generated key may not be unique. May be upgraded in the future.
         ContentValues values = new ContentValues();
         values.put(COLUMN_FRIEND_ID, friendId);
         values.put(COLUMN_ENCRYPTION_KEY, encryptionKey);
         try {
-            sqLiteDatabase.insert(COLUMN_FRIEND_ID, null, values);
+            sqLiteDatabase.insert(TABLE_NAME, null, values);
+            Log.d("EncryptionDB", "addFriendKey called");
         } catch (Exception e) {
             Toast.makeText(context, "Send Friend Request encryption key failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
@@ -81,6 +86,17 @@ public class EncryptionDB extends SQLiteOpenHelper {
             Toast.makeText(context, "Failed to add encryption key in sqlite DB: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
         sqLiteDatabase.close();
+    }
+    private boolean isTableExists(SQLiteDatabase db, String tableName) {
+        Cursor cursor = db.rawQuery("SELECT DISTINCT tbl_name FROM sqlite_master WHERE tbl_name = '" + tableName + "'", null);
+        if (cursor != null) {
+            if (cursor.getCount() > 0) {
+                cursor.close();
+                return true;
+            }
+            cursor.close();
+        }
+        return false;
     }
 
 }
