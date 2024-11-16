@@ -1,13 +1,17 @@
 package com.example.barta_a_messenger_app;
 
+import static androidx.constraintlayout.helper.widget.MotionEffect.TAG;
+
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -20,6 +24,7 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
     Context context;
     static ArrayList<Contact> list;
     String decryptedmessage;
+    private static final String TAG = "ChatListAdapter";
 
 
     public ChatListAdapter(Context context, ArrayList<Contact> list) {
@@ -40,13 +45,21 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
         holder.contact_name.setText(contact.getFull_name());
 
         try{
-            decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106",contact.getLast_message());
+            EncryptionDB encryptionDB = new EncryptionDB(context);
+            String key = encryptionDB.getFriendKey(contact.getUid());
+            if(key == null)
+            {
+                Log.d(TAG, "ChatListAdapter -> onBindViewHolder: key is null");
+//                key = "1234567890123456";
+                return;
+            }
+            decryptedmessage = CryptoHelper.decrypt(key,contact.getLast_message());
         }
         catch (Exception e) {
-            throw new RuntimeException(e);
+            Log.d(TAG, "onBindViewHolder error : " + e.getMessage());
         }
-
-        if(contact.getLast_message().equals("")){
+        Log.d(TAG, decryptedmessage);
+        if(contact.getLast_message().isEmpty()){
             holder.contact_phone.setText("");
         }
         else{

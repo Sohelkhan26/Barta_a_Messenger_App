@@ -1,5 +1,7 @@
 package com.example.barta_a_messenger_app;
 
+import static androidx.constraintlayout.helper.widget.MotionEffect.TAG;
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -18,6 +20,7 @@ public class EncryptionDB extends SQLiteOpenHelper {
     private static final String TABLE_NAME = "ENCRYPTION_KEYS";
     private static final String COLUMN_FRIEND_ID = "FRIEND_ID";
     private static final String COLUMN_ENCRYPTION_KEY = "ENCRYPTION_KEY";
+    private static final String TAG = "EncryptionDB";
     public EncryptionDB(@Nullable Context context) {
         super(context, DATABASE_NAME, null , DATABASE_VERSION);
         this.context = context; // This is the context of the activity that is calling the database
@@ -30,7 +33,7 @@ public class EncryptionDB extends SQLiteOpenHelper {
         try {
             sqLiteDatabase.execSQL(createTableStatement);
         } catch (SQLException e) {
-            Toast.makeText(context, "E: " +  e.getMessage(), Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "onCreate failed: " + e.getMessage());
         }
     }
 
@@ -44,18 +47,29 @@ public class EncryptionDB extends SQLiteOpenHelper {
         if (!isTableExists(sqLiteDatabase, TABLE_NAME)) {
             onCreate(sqLiteDatabase);
         }
+        Cursor cursor = friendExists(friendId);
+        if(cursor.getCount() > 0 && cursor.moveToFirst()){ // আগেও যদি একই নাম্বার ফ্রেন্ড রিকোয়েস্ট পাঠানো হয়ে থাকে তাহলে এরর দিবে। কারণ টেবিলের ফ্রেন্ড আইডি প্রাইমারি কি হিসেবে ডিফাইন করা। এরর যাতে না দেয় তাই আগেই চেক করা হইছে।
+            String key = getFriendKey(friendId); cursor.getString(1); // 0 column -> friendId , 1 column -> encryptionKey
+            cursor.close();
+            return key;
+        }
         String encryptionKey = CryptoHelper.generateUniqueKey(); // This generated key may not be unique. May be upgraded in the future.
         ContentValues values = new ContentValues();
         values.put(COLUMN_FRIEND_ID, friendId);
         values.put(COLUMN_ENCRYPTION_KEY, encryptionKey);
         try {
             sqLiteDatabase.insert(TABLE_NAME, null, values);
-            Log.d("EncryptionDB", "addFriendKey called");
+            Log.d(TAG, "friend key added successfully");
         } catch (Exception e) {
-            Toast.makeText(context, "Send Friend Request encryption key failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "addFriendKey error: " + e.getMessage());
         }
         sqLiteDatabase.close();
         return encryptionKey; // is it necessary to return the key?
+    }
+    private Cursor friendExists(String friendId){
+        SQLiteDatabase sqLiteDatabase = this.getReadableDatabase();
+        Cursor cursor = sqLiteDatabase.rawQuery("SELECT 1 FROM " + TABLE_NAME + " WHERE " + COLUMN_FRIEND_ID + " = ?", new String[]{friendId});
+        return cursor;
     }
 
     public String getFriendKey(String friendId) { // Receiver ID should be passed
@@ -70,20 +84,23 @@ public class EncryptionDB extends SQLiteOpenHelper {
             return key;
         }
         else{
-            Toast.makeText(context, "No key found for friend: " + friendId, Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "getFriendKey: no key found for friend: " + friendId);
         }
         return null;
     }
 
     public void insert(String friendId , String encryptionKey){
         SQLiteDatabase sqLiteDatabase = this.getWritableDatabase();
+        if (!isTableExists(sqLiteDatabase, TABLE_NAME)) {
+            onCreate(sqLiteDatabase);
+        }
         ContentValues values = new ContentValues();
         values.put(COLUMN_FRIEND_ID, friendId);
         values.put(COLUMN_ENCRYPTION_KEY, encryptionKey);
         try {
             sqLiteDatabase.insert(TABLE_NAME, null, values);
         } catch (Exception e) {
-            Toast.makeText(context, "Failed to add encryption key in sqlite DB: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "friend key insertion failed : " + e.getMessage());
         }
         sqLiteDatabase.close();
     }

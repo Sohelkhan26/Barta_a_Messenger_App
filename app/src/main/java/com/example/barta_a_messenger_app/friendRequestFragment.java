@@ -7,9 +7,11 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -93,8 +95,14 @@ public class friendRequestFragment extends Fragment implements FriendRequestAdap
 
     @Override
     public void onAcceptClicked(Request request) {
-        EncryptionDB encryptionDB = new EncryptionDB(this.getContext());
+        EncryptionDB encryptionDB = null;
+        try {
+            encryptionDB = new EncryptionDB(this.getContext());
+        } catch (Exception e) {
+            Log.d("OnAcceptClicked" , e.getMessage());
+        }
         encryptionDB.insert(request.getSenderUid() , request.getEncryptionKey());
+        Toast.makeText(requireContext(), "Friend Request Accepted. Key : " + request.getEncryptionKey() , Toast.LENGTH_SHORT).show();
         DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(request.getSenderUid());
         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override

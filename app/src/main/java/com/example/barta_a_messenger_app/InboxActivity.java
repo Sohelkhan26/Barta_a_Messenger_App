@@ -76,7 +76,9 @@ public class InboxActivity extends AppCompatActivity {
     ValueEventListener chatListener,otherChatListener;
     ChatAdapter chatAdapter;
     String messageSenderName,senderName;
+    private String encryptedKey;
     private EncryptionDB encryptionDB;
+    private SQLiteDatabase sqLiteDatabase;
 
     String decryptedmessage,decryptedmessagenotification,encryptedMessage;
 
@@ -85,6 +87,7 @@ public class InboxActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_inbox);
         encryptionDB = new EncryptionDB(InboxActivity.this);
+        sqLiteDatabase = encryptionDB.getWritableDatabase();
         userName = findViewById(R.id.userName);
         userName.setText(getIntent().getStringExtra("Name").toString());
          DP = findViewById(R.id.headImageView);
@@ -109,7 +112,11 @@ public class InboxActivity extends AppCompatActivity {
 
 
         senderId = mAuth.getCurrentUser().getUid();
+
         receiverId = getIntent().getStringExtra("contact_uid").toString();
+        //11/15/24
+        encryptedKey = encryptionDB.getFriendKey(receiverId);
+
 
         database.getReference().child("user").child(senderId)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -141,7 +148,7 @@ public class InboxActivity extends AppCompatActivity {
 //        }
 
 
-
+        // usage of chat adapter. possibile modification in the future
         chatAdapter = new ChatAdapter(localMessageModel,this,receiverId);
 
 
@@ -152,6 +159,22 @@ public class InboxActivity extends AppCompatActivity {
 
         chatRecyclerView.scrollToPosition(localMessageModel.size()-1);
 
+
+        /*
+        * The two chat listeners in the `InboxActivity` serve different purposes:
+
+1. **`chatListener`**:
+   - This listener is responsible for handling messages between the current user (sender) and the selected contact (receiver).
+   - It listens for changes in the chat data between the sender and receiver, decrypts the messages, updates the local message model, and updates the UI accordingly.
+   - It also marks the last message as seen and removes the chat data from the Firebase database once processed.
+
+2. **`otherChatListener`**:
+   - This listener handles messages from other contacts that are not the currently selected contact.
+   - It listens for changes in the chat data from other contacts, decrypts the messages, and triggers notifications for new messages.
+   - It updates the notification status of the messages in the Firebase database to indicate that they have been notified.
+
+These listeners ensure that the app can handle real-time updates for both the current chat and incoming messages from other contacts, providing a seamless messaging experience.
+        * */
 
         chatListener = new ValueEventListener() {
             @Override
@@ -164,9 +187,9 @@ public class InboxActivity extends AppCompatActivity {
                         message.setIsNotified("yes");
 
                         try{
-                            String encryptedKey = encryptionDB.getFriendKey(senderId); // database এ রিসিভার আইডির রেসপেক্ট এ encryption key সেভ করা আছে
-                            decryptedmessage = CryptoHelper.decrypt(encryptedKey , message.getMessage());
-                            Toast.makeText(InboxActivity.this, decryptedmessage , Toast.LENGTH_SHORT).show();
+//                            encryptedKey = encryptionDB.getFriendKey(senderId); // database এ রিসিভার আইডির রেসপেক্ট এ encryption key সেভ করা আছে
+                            decryptedmessage = CryptoHelper.decrypt( encryptedKey , message.getMessage());
+//                            Toast.makeText(InboxActivity.this, encryptedKey , Toast.LENGTH_SHORT).show();
                         } catch (Exception e) {
                             Toast.makeText(InboxActivity.this, "Decryption failed", Toast.LENGTH_SHORT).show();
                         }
@@ -208,7 +231,12 @@ public class InboxActivity extends AppCompatActivity {
 
             }
         };
-
+/*
+2. **`otherChatListener`**:
+   - This listener handles messages from other contacts that are not the currently selected contact.
+   - It listens for changes in the chat data from other contacts, decrypts the messages, and triggers notifications for new messages.
+   - It updates the notification status of the messages in the Firebase database to indicate that they have been notified.
+*/
         otherChatListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -229,9 +257,10 @@ public class InboxActivity extends AppCompatActivity {
                                                         messageSenderName = ds.child("username").getValue(String.class);
 
                                                         try{
-                                                            String key = encryptionDB.getFriendKey(senderId);
-                                                            decryptedmessagenotification = CryptoHelper.decrypt(key,message.getMessage());
-                                                            Toast.makeText(InboxActivity.this, decryptedmessagenotification , Toast.LENGTH_SHORT).show();
+                                                            String key = encryptionDB.getFriendKey(datasnapshot.getKey()); // datasnapshot.getKey() is the id of the user that is sending message
+                                                            Toast.makeText(InboxActivity.this, key , Toast.LENGTH_SHORT).show();
+                                                            decryptedmessagenotification = CryptoHelper.decrypt(key ,message.getMessage());
+//                                                            Toast.makeText(InboxActivity.this, decryptedmessagenotification , Toast.LENGTH_SHORT).show();
                                                         } catch (Exception e) {
                                                             Toast.makeText(InboxActivity.this, "Decryption failed", Toast.LENGTH_SHORT).show();
                                                         }
@@ -296,8 +325,9 @@ public class InboxActivity extends AppCompatActivity {
                 if(!message.isEmpty()){
 
                     try {
-                        String encryptionKey = encryptionDB.getFriendKey(receiverId);
-                        encryptedMessage = CryptoHelper.encrypt(encryptionKey , message);
+//                        String encryptionKey = encryptionDB.getFriendKey(receiverId);
+//                        Toast.makeText(InboxActivity.this, encryptedKey , Toast.LENGTH_SHORT).show();
+                        encryptedMessage = CryptoHelper.encrypt(encryptedKey , message);
                         // ekhane change korte hobe
                     } catch (Exception e) {
                         Toast.makeText(InboxActivity.this, "Encryption failed", Toast.LENGTH_SHORT).show();
@@ -539,10 +569,10 @@ public class InboxActivity extends AppCompatActivity {
                                 imageUrl = task.getResult().toString();
 
                                 try{
-                                    encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106",imageUrl);
+                                    encryptedMessage = CryptoHelper.encrypt(encryptedKey,imageUrl);
                                 }
                                 catch (Exception e) {
-                                    throw new RuntimeException(e);
+                                    Log.d("InboxActivity", "Image encryption failed : " + e.getMessage());
                                 }
 
                                 MessageModel model = new MessageModel(senderId,encryptedMessage,"img");
@@ -641,10 +671,10 @@ public class InboxActivity extends AppCompatActivity {
                                 fileUrl = task.getResult().toString();
 
                                 try{
-                                    encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106",fileUrl);
+                                    encryptedMessage = CryptoHelper.encrypt(encryptedKey,fileUrl);
                                 }
                                 catch (Exception e) {
-                                    throw new RuntimeException(e);
+                                    Log.d("InboxActivity", "File encryption failed : " + e.getMessage());
                                 }
 
                                 MessageModel model = new MessageModel(senderId,encryptedMessage,fileType);
