@@ -135,7 +135,12 @@ public class AddContactActivity extends AppCompatActivity {
         EncryptionDB encryptionDB = new EncryptionDB(this);
         String encryptionKey = encryptionDB.addFriendKey(contact_uid);
 
-        Request request = new Request("",phone,uid,contact_uid,"pending" , encryptionKey);
+
+        // Hash the recipient's phone number
+        String hashedPhone = CryptoHelper.hash(phone);
+
+        //replaced phone with hashedPhone
+        Request request = new Request("",hashedPhone,uid,contact_uid,"pending" , encryptionKey);
 
         databaseReference.child("FriendRequestPending").child(contact_uid).child(uid).setValue(request); // uid মনে হয় রিসিভার এর আইডি
 

@@ -40,6 +40,7 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
         holder.contact_name.setText(contact.getFull_name());
 
         try{
+//            EncryptionDB encryptionDB = new EncryptionDB(this);
             decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106",contact.getLast_message());
         }
         catch (Exception e) {
