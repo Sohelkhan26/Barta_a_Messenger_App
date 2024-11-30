@@ -51,9 +51,11 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.GoogleAuthProvider;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -79,6 +81,9 @@ public class LoginPageActivity extends AppCompatActivity{
     BeginSignInRequest signUpRequest;
 
     ActivityResultLauncher<IntentSenderRequest> activityResultLauncher;
+    GoogleSignInOptions gso;
+    GoogleSignInClient gsc;
+    private static final int RC_SIGN_IN = 9001;
 
 
     @SuppressLint("ClickableViewAccessibility")
@@ -86,7 +91,30 @@ public class LoginPageActivity extends AppCompatActivity{
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login_page);
+        /*
 
+1. `GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)`: This initializes a `GoogleSignInOptions.Builder`
+object with the default sign-in options.
+`DEFAULT_SIGN_IN` includes basic profile information such as the user's ID and basic profile information.
+
+2. `.requestIdToken(getString(R.string.web_client_id))`: This requests an ID token for the authenticated user.
+The `getString(R.string.web_client_id)` retrieves the web client ID from the `strings.xml` resource file.
+This ID token is used to authenticate the user on your backend server.
+ফায়ারবেসে গিয়ে প্রজেক্টের সেটিংসে গুগল সাইন ইন এনাবল করে নতুন json file নামালে web_client_id auto add  হয় string.xml file এ।
+
+3. `.requestEmail()`: This requests the user's email address as part of the sign-in process.
+
+this code configures the Google Sign-In options to request an ID token and the user's email address,
+which are necessary for authenticating the user and accessing their profile information.
+*/
+        gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.web_client_id))
+                .requestEmail()
+                .build();
+        gsc = GoogleSignIn.getClient(this,gso);
+        // gsc -> GoogleSignInClient object provides the getSignInIntent() which returns an Intent
+        // to start the Google Sign-in activity. It's required for Google sign-in flow, including initiating sign-in
+        // handling sign-out and managing user sessions.
         email = findViewById(R.id.email);
         password = findViewById(R.id.password);
 
@@ -160,16 +188,77 @@ public class LoginPageActivity extends AppCompatActivity{
             }
         });
 
-        signupButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent(LoginPageActivity.this, SignUpActivity.class);
-                startActivity(intent);
-            }
-        });
-
+//        signupButton.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+////                Intent intent = new Intent(LoginPageActivity.this, SignUpActivity.class);
+////                startActivity(intent);
+//                Intent intent = gsc.getSignInIntent();
+//                startActivityForResult(intent , 1000);
+//            }
+//        });
+        signupButton.setOnClickListener(view -> signIn());
 
     }
+    private void signIn() {
+        Intent signInIntent = gsc.getSignInIntent();
+        startActivityForResult(signInIntent, RC_SIGN_IN);
+    }
+    /*The signIn method initiates Google Sign-in process. It's part of the Google Sign-in flow which allows users
+     * to sign in to the app using Google account. startActivityForResult নতুন একটা activity launch করে। নতুন activity থেকে
+     * exit হয়ে গেলে onActivityResult method automatically call হবে। RC_SIGN_IN যেকোন integer value হত পারে।  */
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == RC_SIGN_IN) {
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+            try {
+                GoogleSignInAccount account = task.getResult(ApiException.class);
+                Log.d(TAG, "firebaseAuthWithGoogle:" + account.getId());
+                firebaseAuthWithGoogle(account.getIdToken());
+            } catch (ApiException e) {
+                Log.w(TAG, "Google sign in failed", e);
+            }
+        }
+    }
+    /*This method is called when the acivity which was launched to connect to google acoount exits and provides the request
+     * it was started with , result code returned and any additional data returned.The `Task` class in the Google Play services library
+     *  represents an asynchronous operation. It is part of the `com.google.android.gms.tasks` package and is used to handle the result
+     *  of an asynchronous operation, such as a network request or a database query.
+     *  The `getSignedInAccountFromIntent` method returns a `Task` object that represents the asynchronous operation of retrieving the signed-in account from the intent.
+     **Asynchronous Operation Handling**: It allows you to perform operations asynchronously and handle the result or error when the
+     *  operation completes.*/
+
+    private void firebaseAuthWithGoogle(String idToken) {
+        AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        // Sign in success
+                        Log.d(TAG, "signInWithCredential:success");
+                        FirebaseUser user = mAuth.getCurrentUser();
+                        Log.d(TAG, user.getDisplayName() + " " + user.getEmail());
+                        updateUI(user);
+                    } else {
+                        // Sign in fails
+                        Log.w(TAG, "signInWithCredential:failure", task.getException());
+                        updateUI(null);
+                    }
+                });
+    }
+
+    private void updateUI(FirebaseUser user) {
+        if (user != null) {
+            Intent intent = new Intent(LoginPageActivity.this, HomeScreen.class);
+            startActivity(intent);
+            finish();
+        } else {
+            Toast.makeText(this, "Authentication failed.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
 
     @Override
     public void onStart() {
