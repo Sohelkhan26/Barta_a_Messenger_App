@@ -61,15 +61,15 @@ public class SignUpActivity extends AppCompatActivity {
 
                 progressDialog.show();
 
-                if(email.getText().toString().isEmpty()==true){
+                if(email.getText().toString().isEmpty()){
                     email.setError("not filled");
                     progressDialog.cancel();
                 }
-                if(name.getText().toString().isEmpty()==true){
+                if(name.getText().toString().isEmpty()){
                     name.setError("not filled");
                     progressDialog.cancel();
                 }
-                if(password.getText().toString().isEmpty()==true){
+                if(password.getText().toString().isEmpty()){
                     password.setError("not filled");
                     progressDialog.cancel();
                 }

@@ -29,6 +29,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -62,12 +63,12 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-public class LoginPageActivity extends AppCompatActivity{
+public class LoginPageActivity extends AppCompatActivity {
 
     Button loginButton, signupButton;
     ImageView googleButton;
 
-    EditText email,password;
+    EditText email, password;
 
     TextView forgetPass;
 
@@ -83,6 +84,7 @@ public class LoginPageActivity extends AppCompatActivity{
     ActivityResultLauncher<IntentSenderRequest> activityResultLauncher;
     GoogleSignInOptions gso;
     GoogleSignInClient gsc;
+    Button googleSignInButton;
     private static final int RC_SIGN_IN = 9001;
 
 
@@ -111,7 +113,7 @@ which are necessary for authenticating the user and accessing their profile info
                 .requestIdToken(getString(R.string.web_client_id))
                 .requestEmail()
                 .build();
-        gsc = GoogleSignIn.getClient(this,gso);
+        gsc = GoogleSignIn.getClient(this, gso);
         // gsc -> GoogleSignInClient object provides the getSignInIntent() which returns an Intent
         // to start the Google Sign-in activity. It's required for Google sign-in flow, including initiating sign-in
         // handling sign-out and managing user sessions.
@@ -120,6 +122,7 @@ which are necessary for authenticating the user and accessing their profile info
 
         loginButton = findViewById(R.id.loginbutton);
         signupButton = findViewById(R.id.signupbutton);
+        googleSignInButton = findViewById(R.id.googleSignInButton);
 
 
         progressDialog = new ProgressDialog(this);
@@ -127,8 +130,6 @@ which are necessary for authenticating the user and accessing their profile info
         progressDialog.setCancelable(false);
 
         forgetPass = findViewById(R.id.forgetpasstext);
-
-
 
 
         forgetPass.setOnClickListener(new View.OnClickListener() {
@@ -154,11 +155,11 @@ which are necessary for authenticating the user and accessing their profile info
                 registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), new ActivityResultCallback<ActivityResult>() {
                     @Override
                     public void onActivityResult(ActivityResult result) {
-                        if (result.getResultCode() == Activity.RESULT_OK){
+                        if (result.getResultCode() == Activity.RESULT_OK) {
                             try {
                                 SignInCredential credential = oneTapClient.getSignInCredentialFromIntent(result.getData());
                                 String idToken = credential.getGoogleIdToken();
-                                if (idToken !=  null) {
+                                if (idToken != null) {
                                     navigateToSecondActivity();
                                 }
                             } catch (ApiException e) {
@@ -169,37 +170,35 @@ which are necessary for authenticating the user and accessing their profile info
                 });
 
 
-
         loginButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 progressDialog.show();
-                if(email.getText().toString().isEmpty()==true){
+                if (email.getText().toString().isEmpty() == true) {
                     progressDialog.cancel();
                     email.setError("required");
                 }
-                if(password.getText().toString().isEmpty()==true){
+                if (password.getText().toString().isEmpty() == true) {
                     progressDialog.cancel();
                     password.setError("password empty");
                 }
-                if(!email.getText().toString().isEmpty() &&  !password.getText().toString().isEmpty()){
-                    signInwithEmailPassword(email.getText().toString(),password.getText().toString());
+                if (!email.getText().toString().isEmpty() && !password.getText().toString().isEmpty()) {
+                    signInwithEmailPassword(email.getText().toString(), password.getText().toString());
                 }
             }
         });
 
-//        signupButton.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-////                Intent intent = new Intent(LoginPageActivity.this, SignUpActivity.class);
-////                startActivity(intent);
-//                Intent intent = gsc.getSignInIntent();
-//                startActivityForResult(intent , 1000);
-//            }
-//        });
-        signupButton.setOnClickListener(view -> signIn());
+        signupButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(LoginPageActivity.this, SignUpActivity.class);
+                startActivity(intent);
+            }
+        });
+        googleSignInButton.setOnClickListener(view -> signIn());
 
     }
+
     private void signIn() {
         Intent signInIntent = gsc.getSignInIntent();
         startActivityForResult(signInIntent, RC_SIGN_IN);
@@ -231,6 +230,23 @@ which are necessary for authenticating the user and accessing their profile info
      **Asynchronous Operation Handling**: It allows you to perform operations asynchronously and handle the result or error when the
      *  operation completes.*/
 
+    //    private void firebaseAuthWithGoogle(String idToken) {
+//        AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
+//        mAuth.signInWithCredential(credential)
+//                .addOnCompleteListener(this, task -> {
+//                    if (task.isSuccessful()) {
+//                        // Sign in success
+//                        Log.d(TAG, "signInWithCredential:success");
+//                        FirebaseUser user = mAuth.getCurrentUser();
+//                        Log.d(TAG, user.getDisplayName() + " " + user.getEmail());
+//                        updateUI(user);
+//                    } else {
+//                        // Sign in fails
+//                        Log.w(TAG, "signInWithCredential:failure", task.getException());
+//                        updateUI(null);
+//                    }
+//                });
+//    }
     private void firebaseAuthWithGoogle(String idToken) {
         AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
         mAuth.signInWithCredential(credential)
@@ -239,8 +255,9 @@ which are necessary for authenticating the user and accessing their profile info
                         // Sign in success
                         Log.d(TAG, "signInWithCredential:success");
                         FirebaseUser user = mAuth.getCurrentUser();
-                        Log.d(TAG, user.getDisplayName() + " " + user.getEmail());
-                        updateUI(user);
+                        if (user != null) {
+                            checkAndStoreUserInDatabase(user);
+                        }
                     } else {
                         // Sign in fails
                         Log.w(TAG, "signInWithCredential:failure", task.getException());
@@ -249,8 +266,66 @@ which are necessary for authenticating the user and accessing their profile info
                 });
     }
 
+//    private void checkAndStoreUserInDatabase(FirebaseUser user){
+//        String uid = user.getUid();
+//        String name = user.getDisplayName();
+//        String email = user.getEmail();
+//        String profilePicture = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : "";
+//        Intent intent = new Intent(LoginPageActivity.this, SendOTPActivity.class);
+//        intent.putExtra("uid", uid);
+//        intent.putExtra("email", email);
+//        intent.putExtra("name", name);
+//        intent.putExtra("password", "");
+//        intent.putExtra("profilePicture", profilePicture);
+//        startActivity(intent);
+//    }
+
+    private void checkAndStoreUserInDatabase(FirebaseUser user) {
+        String uid = user.getUid();
+        String name = user.getDisplayName();
+        String email = user.getEmail();
+        String profilePicture = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : "";
+
+        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(uid);
+
+        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (!dataSnapshot.exists()) {
+//                     User does not exist, create new user entry
+                    userRef.setValue(new User(name, email, "0183" ,  profilePicture , "active"))
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    Log.d(TAG, "User added to database.");
+                                    updateUI(user);
+                                } else {
+                                    Log.e(TAG, "Failed to add user to database.");
+                                }
+                            });
+
+                } else {
+                    // User exists, proceed to home
+                    updateUI(user);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Log.e(TAG, "Database error: " + databaseError.getMessage());
+            }
+        });
+    }
+
+
     private void updateUI(FirebaseUser user) {
         if (user != null) {
+            mAuth = FirebaseAuth.getInstance();
+            String uid = user.getUid();
+
+//            databaseReference = FirebaseDatabase.getInstance().getReference().child("user").child(uid);
+//
+//            databaseReference.child("status").setValue("active");
+            // temproary
             Intent intent = new Intent(LoginPageActivity.this, HomeScreen.class);
             startActivity(intent);
             finish();
@@ -265,16 +340,14 @@ which are necessary for authenticating the user and accessing their profile info
         super.onStart();
 
         FirebaseUser currentUser = mAuth.getCurrentUser();
-        if(currentUser != null){
+        if (currentUser != null) {
 //            DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference().child(String.valueOf(currentUser));
 
 //            databaseReference.child("status").setValue("active");
-            Intent intent = new Intent(LoginPageActivity.this,HomeScreen.class);
+            Intent intent = new Intent(LoginPageActivity.this, HomeScreen.class);
             startActivity(intent);
         }
     }
-
-
 
 
     private void signOut() {
@@ -301,12 +374,12 @@ which are necessary for authenticating the user and accessing their profile info
     }
 
 
-    void signInwithEmailPassword(String mail,String pass){
-        mAuth.signInWithEmailAndPassword(mail,pass).addOnCompleteListener(this,new OnCompleteListener<AuthResult>() {
+    void signInwithEmailPassword(String mail, String pass) {
+        mAuth.signInWithEmailAndPassword(mail, pass).addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
-                if(task.isSuccessful()){
-                    Log.d(TAG,"signInWithEmail:success");
+                if (task.isSuccessful()) {
+                    Log.d(TAG, "signInWithEmail:success");
 
                     mAuth = FirebaseAuth.getInstance();
                     String uid = mAuth.getCurrentUser().getUid();
@@ -315,15 +388,14 @@ which are necessary for authenticating the user and accessing their profile info
 
                     databaseReference.child("status").setValue("active");
 
-                    Intent intent = new Intent(LoginPageActivity.this,HomeScreen.class);
+                    Intent intent = new Intent(LoginPageActivity.this, HomeScreen.class);
                     progressDialog.cancel();
 
                     startActivity(intent);
-                }
-                else{
+                } else {
                     progressDialog.cancel();
-                    Log.w(TAG,"signInWithEmail:Failed",task.getException());
-                    Toast.makeText(LoginPageActivity.this,"Email Or Password is Wrong",Toast.LENGTH_SHORT).show();
+                    Log.w(TAG, "signInWithEmail:Failed", task.getException());
+                    Toast.makeText(LoginPageActivity.this, "Email Or Password is Wrong", Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -331,7 +403,7 @@ which are necessary for authenticating the user and accessing their profile info
 
     private void navigateToSecondActivity() {
         finish();
-        Intent intent = new Intent(LoginPageActivity.this,HomeScreen.class);
+        Intent intent = new Intent(LoginPageActivity.this, HomeScreen.class);
         startActivity(intent);
     }
 

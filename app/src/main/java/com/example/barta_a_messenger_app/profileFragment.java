@@ -15,11 +15,16 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
@@ -31,6 +36,7 @@ import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.UploadTask;
 import com.squareup.picasso.Picasso;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.UUID;
@@ -39,7 +45,7 @@ public class profileFragment extends Fragment {
 
     private String uid;
     private RecyclerView recyclerView;
-    private TextView username,phone_nmbr;
+    private TextView username, phone_nmbr;
     private ImageView imgProfile;
     private Uri imagePath;
     private ArrayList<Contact> list;
@@ -70,7 +76,7 @@ public class profileFragment extends Fragment {
         username = view.findViewById(R.id.username);
         imgProfile = view.findViewById(R.id.profilePicture);
         recyclerView = view.findViewById(R.id.recyclerView);
-        editStatus=view.findViewById(R.id.updateStatusBtn);
+        editStatus = view.findViewById(R.id.updateStatusBtn);
         phone_nmbr = view.findViewById(R.id.phone);
 
         editStatus.setOnClickListener(new View.OnClickListener() {
@@ -144,7 +150,7 @@ public class profileFragment extends Fragment {
                     list.add(contact);
                     String uid2 = contact.getUid();
 
-                    if (uid2 != null){
+                    if (uid2 != null) {
                         DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(uid2);
 
                         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -188,7 +194,6 @@ public class profileFragment extends Fragment {
                             }
                         });
                     }
-
 
 
                 }
@@ -286,13 +291,29 @@ public class profileFragment extends Fragment {
         imgProfile.setImageBitmap(bitmap);
     }
 
+    //    private void logout() {
+//
+//        FirebaseAuth.getInstance().signOut();
+//
+//        Intent intent = new Intent(getActivity(), LoginPageActivity.class);
+//        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+//        startActivity(intent);
+//        getActivity().finish();
+//    }
     private void logout() {
-
         FirebaseAuth.getInstance().signOut();
 
-        Intent intent = new Intent(getActivity(), LoginPageActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        getActivity().finish();
+        GoogleSignInClient googleSignInClient = GoogleSignIn.getClient(requireContext(),
+                new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build());
+
+        googleSignInClient.signOut().addOnCompleteListener(task -> {
+            googleSignInClient.revokeAccess().addOnCompleteListener(task2 -> {
+                Intent intent = new Intent(getActivity(), LoginPageActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+                getActivity().finish();
+            });
+        });
     }
+
 }

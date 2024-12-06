@@ -80,16 +80,15 @@
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="56dp"
                 app:boxBackgroundMode="filled">
 
                 <EditText
                     android:id="@+id/email"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textEmailAddress"
                     android:drawableEnd="@drawable/done_icon"
-                    />
+                    android:inputType="textEmailAddress" />
 
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -117,9 +116,8 @@
                 <EditText
                     android:id="@+id/password"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textPassword"
-                    />
+                    android:layout_height="match_parent"
+                    android:inputType="textPassword" />
 
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -155,22 +153,28 @@
                 android:id="@+id/loginbutton"
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
+                android:backgroundTint="#035283"
                 android:text="Login"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="#035283"
-                app:cornerRadius="32dp"/>
+                app:cornerRadius="32dp" />
 
             <androidx.constraintlayout.utils.widget.MotionButton
                 android:id="@+id/signupbutton"
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
-                android:text="SignUp"
-                app:cornerRadius="32dp"
-                android:textColor="#FFFFFF"
                 android:backgroundTint="#2085C3"
-                />
+                android:text="SignUp"
+                android:textColor="#FFFFFF"
+                app:cornerRadius="32dp" />
 
-
+            <androidx.constraintlayout.utils.widget.MotionButton
+                android:id="@+id/googleSignInButton"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:backgroundTint="#2085C3"
+                android:text="Sign In With Google"
+                android:textColor="#FFFFFF"
+                app:cornerRadius="32dp" />
 
 
         </LinearLayout>
