@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "678763509023-ra84v3vvgfo8krv6gu3s79uu2dheflar.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.barta_a_messenger_app",
+            "certificate_hash": "a09468e4025c17a051a32ad74dd5cedb461c02a4"
+          }
+        },
+        {
           "client_id": "678763509023-4ldok3fqmt4tqvc37asvfb6ajnrf5igs.apps.googleusercontent.com",
           "client_type": 3
         }

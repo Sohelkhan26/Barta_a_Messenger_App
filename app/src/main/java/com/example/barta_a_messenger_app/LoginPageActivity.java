@@ -218,7 +218,7 @@ which are necessary for authenticating the user and accessing their profile info
                 Log.d(TAG, "firebaseAuthWithGoogle:" + account.getId());
                 firebaseAuthWithGoogle(account.getIdToken());
             } catch (ApiException e) {
-                Log.w(TAG, "Google sign in failed", e);
+                Log.w(TAG, "Google sign in failed for : " + e.getMessage(), e);
             }
         }
     }
@@ -266,55 +266,104 @@ which are necessary for authenticating the user and accessing their profile info
                 });
     }
 
-//    private void checkAndStoreUserInDatabase(FirebaseUser user){
+    //    private void checkAndStoreUserInDatabase(FirebaseUser user) {
 //        String uid = user.getUid();
-//        String name = user.getDisplayName();
-//        String email = user.getEmail();
-//        String profilePicture = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : "";
-//        Intent intent = new Intent(LoginPageActivity.this, SendOTPActivity.class);
-//        intent.putExtra("uid", uid);
-//        intent.putExtra("email", email);
-//        intent.putExtra("name", name);
-//        intent.putExtra("password", "");
-//        intent.putExtra("profilePicture", profilePicture);
-//        startActivity(intent);
+//        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(uid);
+//
+//        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
+//            @Override
+//            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+//                if (!dataSnapshot.exists()) {
+//                    String name = user.getDisplayName();
+//                    String email = user.getEmail();
+//                    String profilePicture = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : "";
+//                    Intent intent = new Intent(LoginPageActivity.this, SendOTPActivity.class);
+//                    intent.putExtra("uid", uid);
+//                    intent.putExtra("email", email);
+//                    intent.putExtra("name", name);
+//                    intent.putExtra("password", "");
+//                    intent.putExtra("profilePicture", profilePicture);
+//                    startActivity(intent);
+//                }
+//            } else
+//            {
+//                // User exists, proceed to home
+//                updateUI(user);
+//            }
+//        }
 //    }
-
+//}
     private void checkAndStoreUserInDatabase(FirebaseUser user) {
         String uid = user.getUid();
-        String name = user.getDisplayName();
-        String email = user.getEmail();
-        String profilePicture = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : "";
-
         DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(uid);
 
         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (!dataSnapshot.exists()) {
-//                     User does not exist, create new user entry
-                    userRef.setValue(new User(name, email, "0183" ,  profilePicture , "active"))
-                            .addOnCompleteListener(task -> {
-                                if (task.isSuccessful()) {
-                                    Log.d(TAG, "User added to database.");
-                                    updateUI(user);
-                                } else {
-                                    Log.e(TAG, "Failed to add user to database.");
-                                }
-                            });
+                    // User doesn't exist, so redirect to SendOTPActivity to store new user
+                    String name = user.getDisplayName();
+                    String email = user.getEmail();
+                    String profilePicture = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : "";
 
+                    // Create an intent to pass data to SendOTPActivity
+                    Intent intent = new Intent(LoginPageActivity.this, SendOTPActivity.class);
+                    intent.putExtra("uid", uid);
+                    intent.putExtra("email", email);
+                    intent.putExtra("name", name);
+                    intent.putExtra("password", "");
+                    intent.putExtra("profilePicture", profilePicture);
+                    startActivity(intent);
                 } else {
-                    // User exists, proceed to home
+                    // User exists, proceed to home activity
                     updateUI(user);
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError databaseError) {
-                Log.e(TAG, "Database error: " + databaseError.getMessage());
+                // Handle the error in case database operation fails
+                Log.w(TAG, "Failed to read value.", databaseError.toException());
             }
         });
     }
+
+
+//    private void checkAndStoreUserInDatabase(FirebaseUser user) {
+//        String uid = user.getUid();
+//        String name = user.getDisplayName();
+//        String email = user.getEmail();
+//        String profilePicture = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : "";
+//
+//        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(uid);
+//
+//        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
+//            @Override
+//            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+//                if (!dataSnapshot.exists()) {
+////                     User does not exist, create new user entry
+//                    userRef.setValue(new User(name, email, "0183" ,  profilePicture , "active"))
+//                            .addOnCompleteListener(task -> {
+//                                if (task.isSuccessful()) {
+//                                    Log.d(TAG, "User added to database.");
+//                                    updateUI(user);
+//                                } else {
+//                                    Log.e(TAG, "Failed to add user to database.");
+//                                }
+//                            });
+//
+//                } else {
+//                    // User exists, proceed to home
+//                    updateUI(user);
+//                }
+//            }
+//
+//            @Override
+//            public void onCancelled(@NonNull DatabaseError databaseError) {
+//                Log.e(TAG, "Database error: " + databaseError.getMessage());
+//            }
+//        });
+//    }
 
 
     private void updateUI(FirebaseUser user) {
