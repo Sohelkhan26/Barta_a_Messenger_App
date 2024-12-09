@@ -1,6 +1,8 @@
 package com.example.barta_a_messenger_app;
 
 
+import static com.google.android.gms.common.util.CollectionUtils.listOf;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -10,6 +12,7 @@ import androidx.documentfile.provider.DocumentFile;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.ContentValues;
 import android.content.DialogInterface;
@@ -29,9 +32,22 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.Scopes;
+import com.google.android.gms.common.api.Scope;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.api.client.extensions.android.http.AndroidHttp;
+import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
+import com.google.api.client.http.ByteArrayContent;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.services.drive.Drive;
+import com.google.api.services.drive.DriveScopes;
+import com.google.api.services.drive.model.File;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -41,14 +57,27 @@ import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.UploadTask;
 import com.squareup.picasso.Picasso;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.UUID;
 
 public class InboxActivity extends AppCompatActivity {
 
-    TextView userName;
+    private static final int RC_AUTHORIZE_DRIVE = 10943;
 
+    private static final int REQUEST_CODE_SIGN_IN = 1;
+    private static final int REQUEST_CODE_OPEN_DOCUMENT = 2;
+    private static final Log log = LogFactory.getLog(InboxActivity.class);
+    TextView userName;
+    Scope ACCESS_DRIVE_SCOPE = new Scope(Scopes.DRIVE_FILE);
+    Scope SCOPE_EMAIL = new Scope(Scopes.EMAIL);
+    private DriveServiceHelper driveServiceHelper;
     ImageView DP;
     AppCompatImageView backButton;
 
@@ -500,7 +529,7 @@ public class InboxActivity extends AppCompatActivity {
 
             if(checker.equals("image")){
                 imagePath = data.getData();
-                uploadImage();
+                uploadImageToDrive();
             }
             else if(checker.equals("pdf")){
                 fileUri = data.getData();
@@ -514,109 +543,256 @@ public class InboxActivity extends AppCompatActivity {
                 Toast.makeText(this,"Nothing Selected,Error",Toast.LENGTH_SHORT).show();
             }
         }
+        if(requestCode == RC_AUTHORIZE_DRIVE){
+            // Handle the result for Google Sign-In request
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+            if (task.isSuccessful()) {
+                // If permission was granted, proceed with Google Drive setup
+                GoogleSignInAccount account = task.getResult();
+                android.util.Log.d("Inbox", "onActivityResult: " + account.getEmail());
+//                Toast.makeText(this, "Permission granted", Toast.LENGTH_SHORT).show();
+            } else {
+                // If permission was denied, show an error message or ask user to try again
+                Toast.makeText(this, "Permission denied. Unable to access Google Drive", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
+
+    private void uploadImageToDrive() {
+        checkForGooglePermissions();
+        if(driveServiceHelper == null){
+            Toast.makeText(this, "Drive Service Helper is null", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        uploadImage();
+        // Create folder asynchronously
+//        Task<GoogleDriveFileHolder> folderCreationTask = driveServiceHelper.createFolder("sohel", null);
+//
+//        folderCreationTask.addOnCompleteListener(task -> {
+//            if (task.isSuccessful()) {
+//                GoogleDriveFileHolder result = task.getResult();
+//                Toast.makeText(this, "Folder created with ID: " + result.getId(), Toast.LENGTH_SHORT).show();
+//            } else {
+//                Toast.makeText(this, "Error creating folder: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+//            }
+//        });
+    }
+
+    private void driveSetUp() {
+
+        GoogleSignInAccount mAccount = GoogleSignIn.getLastSignedInAccount(this);
+
+        GoogleAccountCredential credential =
+                GoogleAccountCredential.usingOAuth2(
+                        getApplicationContext(), Collections.singleton(Scopes.DRIVE_FILE));
+        credential.setSelectedAccount(mAccount.getAccount());
+        android.util.Log.d("Inbox ", "driveSetUp: " + mAccount.getEmail());
+//        Toast.makeText(this, "Inside Drive setup", Toast.LENGTH_SHORT).show();
+        Drive googleDriveService =
+                new com.google.api.services.drive.Drive.Builder(
+                        AndroidHttp.newCompatibleTransport(),
+                        new GsonFactory(),
+                        credential)
+                        .setApplicationName("GoogleDriveIntegration 3")
+                        .build();
+        driveServiceHelper = new DriveServiceHelper(googleDriveService , this.getApplicationContext());
+    }
+
+    private void checkForGooglePermissions() {
+
+        if (!GoogleSignIn.hasPermissions(
+                GoogleSignIn.getLastSignedInAccount(getApplicationContext()),
+                ACCESS_DRIVE_SCOPE,
+                SCOPE_EMAIL)) {
+            GoogleSignIn.requestPermissions(
+                    this,
+                    RC_AUTHORIZE_DRIVE,
+                    GoogleSignIn.getLastSignedInAccount(getApplicationContext()),
+                    ACCESS_DRIVE_SCOPE,
+                    SCOPE_EMAIL);
+        } else {
+            driveSetUp();
+//            Toast.makeText(this, "Permission to access Drive and Email has been granted", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+
+//    private void uploadImage() {
+//        ProgressDialog progressDialog = new ProgressDialog(this);
+//        progressDialog.setTitle("Uploading....");
+//        progressDialog.show();
+//
+//        FirebaseStorage.getInstance().getReference("chat_images/"+ UUID.randomUUID().toString()).putFile(imagePath).addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
+//            @Override
+//            public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
+//                if (task.isSuccessful()){
+//                    task.getResult().getStorage().getDownloadUrl().addOnCompleteListener(new OnCompleteListener<Uri>() {
+//                        @Override
+//                        public void onComplete(@NonNull Task<Uri> task) {
+//                            if (task.isSuccessful()){
+//                                imageUrl = task.getResult().toString();
+//
+//                                try{
+//                                    encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106",imageUrl);
+//                                }
+//                                catch (Exception e) {
+//                                    throw new RuntimeException(e);
+//                                }
+//
+//                                MessageModel model = new MessageModel(senderId,encryptedMessage,"img");
+//                                model.setTimestamp(new Date().getTime());
+//
+//
+//                                String key = database.getReference().child("chats")
+//                                        .child(receiverId)
+//                                        .child(senderId)
+//                                        .push().getKey();
+//
+//                                model.setMessageId(key);
+//                                model.setIsNotified("no");
+//
+//                                database.getReference().child("chats")
+//                                        .child(receiverId)
+//                                        .child(senderId)
+//                                        .child(key)
+//                                        .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
+//                                            @Override
+//                                            public void onSuccess(Void unused) {
+//                                                model.setMessage(imageUrl);
+//                                                updateLocalDatabase(model);
+//                                                localMessageModel.add(model);
+//                                                chatAdapter.notifyDataSetChanged();
+//                                                chatRecyclerView.scrollToPosition(localMessageModel.size()-1);
+//
+//                                                database.getReference().child("Contacts").child(receiverId)
+//                                                        .child(senderId).child("last_message")
+//                                                        .setValue("sent an image");
+//
+//                                                database.getReference().child("Contacts").child(receiverId)
+//                                                        .child(senderId).child("last_sender_name")
+//                                                        .setValue("");
+//
+//                                                database.getReference().child("Contacts").child(receiverId)
+//                                                        .child(senderId).child("message_time")
+//                                                        .setValue(model.getTimestamp());
+//
+//                                                database.getReference().child("Contacts").child(receiverId)
+//                                                        .child(senderId).child("last_message_seen")
+//                                                        .setValue("false");
+//
+//                                                database.getReference().child("Contacts").child(senderId)
+//                                                        .child(receiverId).child("last_message")
+//                                                        .setValue("sent an image");
+//
+//                                                database.getReference().child("Contacts").child(senderId)
+//                                                        .child(receiverId).child("last_sender_name")
+//                                                        .setValue("You");
+//
+//                                                database.getReference().child("Contacts").child(senderId)
+//                                                        .child(receiverId).child("message_time")
+//                                                        .setValue(model.getTimestamp());
+//
+//                                                database.getReference().child("Contacts").child(senderId)
+//                                                        .child(receiverId).child("last_message_seen")
+//                                                        .setValue("true");
+//
+//                                                progressDialog.dismiss();
+//                                            }
+//                                        });
+//
+////                                updateProfilePicture(task.getResult().toString());
+//                            }
+//
+//                        }
+//
+//                    });
+////                    Toast.makeText(ProfileActivity.this, "Image Uploaded", Toast.LENGTH_SHORT).show();
+//                }
+//                else {
+////                    Toast.makeText(ProfileActivity.this, task.getException().getLocalizedMessage(), Toast.LENGTH_SHORT).show();
+//                }
+//
+//            }
+//
+//        });
+//
+//
+//    }
 
     private void uploadImage() {
         ProgressDialog progressDialog = new ProgressDialog(this);
         progressDialog.setTitle("Uploading....");
         progressDialog.show();
 
-        FirebaseStorage.getInstance().getReference("chat_images/"+ UUID.randomUUID().toString()).putFile(imagePath).addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
-            @Override
-            public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
-                if (task.isSuccessful()){
-                    task.getResult().getStorage().getDownloadUrl().addOnCompleteListener(new OnCompleteListener<Uri>() {
-                        @Override
-                        public void onComplete(@NonNull Task<Uri> task) {
-                            if (task.isSuccessful()){
-                                imageUrl = task.getResult().toString();
+        // Upload the image to Google Drive instead of Firebase Storage
+        try {
+            // Upload to Google Drive
+            Task<File> uploadTask = driveServiceHelper.uploadFile(imagePath, UUID.randomUUID().toString());
 
-                                try{
-                                    encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106",imageUrl);
-                                }
-                                catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
+            uploadTask.addOnCompleteListener(new OnCompleteListener<File>() {
+                @Override
+                public void onComplete(@NonNull Task<File> task) {
+                    if (task.isSuccessful()) {
+                        // Retrieve the file's ID and construct the download URL
+                        File uploadedFile = task.getResult();
+                        String fileId = uploadedFile.getId();
+                        String downloadUrl = "https://drive.google.com/uc?id=" + fileId;  // Construct the download URL
 
-                                MessageModel model = new MessageModel(senderId,encryptedMessage,"img");
-                                model.setTimestamp(new Date().getTime());
-
-
-                                String key = database.getReference().child("chats")
-                                        .child(receiverId)
-                                        .child(senderId)
-                                        .push().getKey();
-
-                                model.setMessageId(key);
-                                model.setIsNotified("no");
-
-                                database.getReference().child("chats")
-                                        .child(receiverId)
-                                        .child(senderId)
-                                        .child(key)
-                                        .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
-                                            @Override
-                                            public void onSuccess(Void unused) {
-                                                model.setMessage(imageUrl);
-                                                updateLocalDatabase(model);
-                                                localMessageModel.add(model);
-                                                chatAdapter.notifyDataSetChanged();
-                                                chatRecyclerView.scrollToPosition(localMessageModel.size()-1);
-
-                                                database.getReference().child("Contacts").child(receiverId)
-                                                        .child(senderId).child("last_message")
-                                                        .setValue("sent an image");
-
-                                                database.getReference().child("Contacts").child(receiverId)
-                                                        .child(senderId).child("last_sender_name")
-                                                        .setValue("");
-
-                                                database.getReference().child("Contacts").child(receiverId)
-                                                        .child(senderId).child("message_time")
-                                                        .setValue(model.getTimestamp());
-
-                                                database.getReference().child("Contacts").child(receiverId)
-                                                        .child(senderId).child("last_message_seen")
-                                                        .setValue("false");
-
-                                                database.getReference().child("Contacts").child(senderId)
-                                                        .child(receiverId).child("last_message")
-                                                        .setValue("sent an image");
-
-                                                database.getReference().child("Contacts").child(senderId)
-                                                        .child(receiverId).child("last_sender_name")
-                                                        .setValue("You");
-
-                                                database.getReference().child("Contacts").child(senderId)
-                                                        .child(receiverId).child("message_time")
-                                                        .setValue(model.getTimestamp());
-
-                                                database.getReference().child("Contacts").child(senderId)
-                                                        .child(receiverId).child("last_message_seen")
-                                                        .setValue("true");
-
-                                                progressDialog.dismiss();
-                                            }
-                                        });
-
-//                                updateProfilePicture(task.getResult().toString());
-                            }
-
+                        // Encrypt the download URL before saving it in the message
+                        try {
+                            encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", downloadUrl);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
                         }
 
-                    });
-//                    Toast.makeText(ProfileActivity.this, "Image Uploaded", Toast.LENGTH_SHORT).show();
+                        // Create a message model for the image message
+                        MessageModel model = new MessageModel(senderId, encryptedMessage, "img");
+                        model.setTimestamp(new Date().getTime());
+
+                        // Push the message to the database (Firebase Realtime Database)
+                        String key = database.getReference().child("chats")
+                                .child(receiverId)
+                                .child(senderId)
+                                .push().getKey();
+
+                        model.setMessageId(key);
+                        model.setIsNotified("no");
+
+                        // Save message to database
+                        database.getReference().child("chats")
+                                .child(receiverId)
+                                .child(senderId)
+                                .child(key)
+                                .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
+                                    @Override
+                                    public void onSuccess(Void unused) {
+                                        model.setMessage(downloadUrl);  // Store the actual URL in the message
+                                        updateLocalDatabase(model);
+                                        localMessageModel.add(model);
+                                        chatAdapter.notifyDataSetChanged();
+                                        chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+
+                                        // Update last message and metadata in contacts
+//                                        updateContacts(model);
+
+                                        progressDialog.dismiss();
+                                    }
+                                });
+                    } else {
+                        // Handle failure
+                        progressDialog.dismiss();
+                        // You can show an error message if the upload fails
+                        Toast.makeText(getApplicationContext(), "Failed to upload image: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 }
-                else {
-//                    Toast.makeText(ProfileActivity.this, task.getException().getLocalizedMessage(), Toast.LENGTH_SHORT).show();
-                }
-
-            }
-
-        });
-
-
+            });
+        } catch (Exception e) {
+            progressDialog.dismiss();
+            e.printStackTrace();
+            Toast.makeText(getApplicationContext(), "Error during upload: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
+
 
     private void uploadFile(String fileType){
         ProgressDialog progressDialog = new ProgressDialog(this);

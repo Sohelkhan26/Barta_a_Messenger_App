@@ -3,6 +3,7 @@ package com.example.barta_a_messenger_app;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -85,6 +86,7 @@ public class ChatAdapter extends RecyclerView.Adapter{
             }
         }
         else if(messageModel.getMessageType().equals( "img")){
+//            Log.d("Chat" , messageModel.getMessage());
             if(holder.getClass() == SenderViewHolder.class){
                 ((SenderViewHolder)holder).senderMsg.setVisibility(View.GONE);
                 ((SenderViewHolder)holder).sentFile.setVisibility(View.GONE);

@@ -215,7 +215,7 @@ which are necessary for authenticating the user and accessing their profile info
             Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
             try {
                 GoogleSignInAccount account = task.getResult(ApiException.class);
-                Log.d(TAG, "firebaseAuthWithGoogle:" + account.getId());
+                Log.d(TAG, "firebaseAuthWithGoogle: " + account.getDisplayName());
                 firebaseAuthWithGoogle(account.getIdToken());
             } catch (ApiException e) {
                 Log.w(TAG, "Google sign in failed for : " + e.getMessage(), e);
@@ -370,10 +370,6 @@ which are necessary for authenticating the user and accessing their profile info
         if (user != null) {
             mAuth = FirebaseAuth.getInstance();
             String uid = user.getUid();
-
-//            databaseReference = FirebaseDatabase.getInstance().getReference().child("user").child(uid);
-//
-//            databaseReference.child("status").setValue("active");
             // temproary
             Intent intent = new Intent(LoginPageActivity.this, HomeScreen.class);
             startActivity(intent);
