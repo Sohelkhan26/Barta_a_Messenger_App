@@ -44,6 +44,7 @@ import com.google.android.gms.tasks.Task;
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.http.ByteArrayContent;
+import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
@@ -773,7 +774,7 @@ public class InboxActivity extends AppCompatActivity {
                                         chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
 
                                         // Update last message and metadata in contacts
-//                                        updateContacts(model);
+                                        updateContacts(model);
 
                                         progressDialog.dismiss();
                                     }
@@ -794,100 +795,132 @@ public class InboxActivity extends AppCompatActivity {
     }
 
 
-    private void uploadFile(String fileType){
+    private void uploadFile(String fileType) {
         ProgressDialog progressDialog = new ProgressDialog(this);
         progressDialog.setTitle("Uploading....");
         progressDialog.show();
+        checkForGooglePermissions();
+        // Determine MIME type based on file type
+        String mimeType = getMimeType(fileType); // You can write a helper method to get MIME type
 
-        FirebaseStorage.getInstance().getReference("files/"+ getFileNameFromUri(fileUri)).putFile(fileUri).addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
-            @Override
-            public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
-                if (task.isSuccessful()){
-                    task.getResult().getStorage().getDownloadUrl().addOnCompleteListener(new OnCompleteListener<Uri>() {
-                        @Override
-                        public void onComplete(@NonNull Task<Uri> task) {
-                            if (task.isSuccessful()){
-                                fileUrl = task.getResult().toString();
+        try {
+            // Assuming fileUri is passed and refers to the file to be uploaded
+            InputStream inputStream = getContentResolver().openInputStream(fileUri); // Open InputStream for the file
 
-                                try{
-                                    encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106",fileUrl);
-                                }
-                                catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
+            // File metadata setup (name, MIME type)
+            File fileMetadata = new File();
+            fileMetadata.setName(getFileNameFromUri(fileUri)); // Use a method to get the file name from URI
 
-                                MessageModel model = new MessageModel(senderId,encryptedMessage,fileType);
-                                model.setTimestamp(new Date().getTime());
+            // Create InputStreamContent with MIME type and InputStream
+            InputStreamContent mediaContent = new InputStreamContent(mimeType, inputStream);
 
-                                String key = database.getReference().child("chats")
-                                        .child(receiverId)
-                                        .child(senderId)
-                                        .push().getKey();
-                                model.setMessageId(key);
+            // Upload file to Google Drive using DriveServiceHelper
+            Task<File> uploadTask = driveServiceHelper.uploadFile(fileUri, getFileNameFromUri(fileUri));
 
-                                database.getReference().child("chats")
-                                        .child(receiverId)
-                                        .child(senderId)
-                                        .child(key)
-                                        .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
-                                            @Override
-                                            public void onSuccess(Void unused) {
-                                                model.setMessage(fileUrl);
-                                                updateLocalDatabase(model);
-                                                localMessageModel.add(model);
-                                                chatAdapter.notifyDataSetChanged();
-                                                chatRecyclerView.scrollToPosition(localMessageModel.size()-1);
+            uploadTask.addOnCompleteListener(new OnCompleteListener<File>() {
+                @Override
+                public void onComplete(@NonNull Task<File> task) {
+                    if (task.isSuccessful()) {
+                        File uploadedFile = task.getResult();
+                        String fileId = uploadedFile.getId();
+                        String fileUrl = "https://drive.google.com/uc?id=" + fileId; // Construct the file URL
 
-                                                database.getReference().child("Contacts").child(receiverId)
-                                                        .child(senderId).child("last_message")
-                                                        .setValue("sent an file");
-
-                                                database.getReference().child("Contacts").child(receiverId)
-                                                        .child(senderId).child("last_sender_name")
-                                                        .setValue("");
-
-                                                database.getReference().child("Contacts").child(receiverId)
-                                                        .child(senderId).child("message_time")
-                                                        .setValue(model.getTimestamp());
-
-                                                database.getReference().child("Contacts").child(receiverId)
-                                                        .child(senderId).child("last_message_seen")
-                                                        .setValue("false");
-
-                                                database.getReference().child("Contacts").child(senderId)
-                                                        .child(receiverId).child("last_message")
-                                                        .setValue("sent an file");
-
-                                                database.getReference().child("Contacts").child(senderId)
-                                                        .child(receiverId).child("last_sender_name")
-                                                        .setValue("You");
-
-                                                database.getReference().child("Contacts").child(senderId)
-                                                        .child(receiverId).child("message_time")
-                                                        .setValue(model.getTimestamp());
-
-                                                database.getReference().child("Contacts").child(senderId)
-                                                        .child(receiverId).child("last_message_seen")
-                                                        .setValue("true");
-
-                                                progressDialog.dismiss();
-                                            }
-                                        });
-
-
-//                                updateProfilePicture(task.getResult().toString());
-                            }
-
+                        // Encrypt the file URL before saving it to the database
+                        try {
+                            encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", fileUrl);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
                         }
 
-                    });
+                        // Create message model and save it to the database
+                        MessageModel model = new MessageModel(senderId, encryptedMessage, fileType);
+                        model.setTimestamp(new Date().getTime());
+                        String key = database.getReference().child("chats")
+                                .child(receiverId)
+                                .child(senderId)
+                                .push().getKey();
+                        model.setMessageId(key);
 
+                        // Save the message to Firebase Realtime Database
+                        database.getReference().child("chats")
+                                .child(receiverId)
+                                .child(senderId)
+                                .child(key)
+                                .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
+                                    @Override
+                                    public void onSuccess(Void unused) {
+                                        model.setMessage(fileUrl); // Store the actual URL in the message
+                                        updateLocalDatabase(model);
+                                        localMessageModel.add(model);
+                                        chatAdapter.notifyDataSetChanged();
+                                        chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+
+                                        // Update the contacts with the last message and timestamp
+                                        updateContacts(model);
+                                        progressDialog.dismiss();
+                                    }
+                                });
+                    } else {
+                        // Handle failure to upload
+                        progressDialog.dismiss();
+                        Toast.makeText(getApplicationContext(), "Failed to upload file: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 }
+            });
 
-            }
-
-        });
+        } catch (IOException e) {
+            progressDialog.dismiss();
+            Toast.makeText(getApplicationContext(), "Error during file upload: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
+
+    private String getMimeType(String fileType) {
+        switch (fileType) {
+            case "pdf":
+                return "application/pdf";
+            case "doc":
+                return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; // MIME type for DOCX
+            default:
+                return "application/octet-stream"; // Default MIME type for unknown file types
+        }
+    }
+
+    private void updateContacts(MessageModel model) {
+        // Update contacts with the new message data (last message, timestamp, etc.)
+        database.getReference().child("Contacts").child(receiverId)
+                .child(senderId).child("last_message")
+                .setValue("sent a file");
+
+        database.getReference().child("Contacts").child(receiverId)
+                .child(senderId).child("last_sender_name")
+                .setValue("");
+
+        database.getReference().child("Contacts").child(receiverId)
+                .child(senderId).child("message_time")
+                .setValue(model.getTimestamp());
+
+        database.getReference().child("Contacts").child(receiverId)
+                .child(senderId).child("last_message_seen")
+                .setValue("false");
+
+        // Repeat similar updates for the sender
+        database.getReference().child("Contacts").child(senderId)
+                .child(receiverId).child("last_message")
+                .setValue("sent a file");
+
+        database.getReference().child("Contacts").child(senderId)
+                .child(receiverId).child("last_sender_name")
+                .setValue("You");
+
+        database.getReference().child("Contacts").child(senderId)
+                .child(receiverId).child("message_time")
+                .setValue(model.getTimestamp());
+
+        database.getReference().child("Contacts").child(senderId)
+                .child(receiverId).child("last_message_seen")
+                .setValue("true");
+    }
+
 
     public ArrayList<MessageModel> getAllMessages() {
         ArrayList<MessageModel> messages = new ArrayList<>();
