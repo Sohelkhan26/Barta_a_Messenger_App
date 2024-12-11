@@ -260,6 +260,9 @@ public class InboxActivity extends AppCompatActivity {
                                                             throw new RuntimeException(e);
                                                         }
 
+                                                        if(message.getMessageType().equals("img")){
+                                                            decryptedmessagenotification = "sent an image";
+                                                        }
 
                                                         NotificationHelper.notificationDialog(InboxActivity.this,decryptedmessagenotification,messageSenderName);
 
@@ -774,7 +777,38 @@ public class InboxActivity extends AppCompatActivity {
                                         chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
 
                                         // Update last message and metadata in contacts
-                                        updateContacts(model);
+//                                        updateContacts(model);
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                        .child(senderId).child("last_message")
+                                                        .setValue("sent an image");
+
+                                                database.getReference().child("Contacts").child(receiverId)
+                                                        .child(senderId).child("last_sender_name")
+                                                        .setValue("");
+
+                                                database.getReference().child("Contacts").child(receiverId)
+                                                        .child(senderId).child("message_time")
+                                                        .setValue(model.getTimestamp());
+
+                                                database.getReference().child("Contacts").child(receiverId)
+                                                        .child(senderId).child("last_message_seen")
+                                                        .setValue("false");
+
+                                                database.getReference().child("Contacts").child(senderId)
+                                                        .child(receiverId).child("last_message")
+                                                        .setValue("sent an image");
+
+                                                database.getReference().child("Contacts").child(senderId)
+                                                        .child(receiverId).child("last_sender_name")
+                                                        .setValue("You");
+
+                                                database.getReference().child("Contacts").child(senderId)
+                                                        .child(receiverId).child("message_time")
+                                                        .setValue(model.getTimestamp());
+
+                                                database.getReference().child("Contacts").child(senderId)
+                                                        .child(receiverId).child("last_message_seen")
+                                                        .setValue("true");
 
                                         progressDialog.dismiss();
                                     }
@@ -782,7 +816,6 @@ public class InboxActivity extends AppCompatActivity {
                     } else {
                         // Handle failure
                         progressDialog.dismiss();
-                        // You can show an error message if the upload fails
                         Toast.makeText(getApplicationContext(), "Failed to upload image: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 }
@@ -801,7 +834,7 @@ public class InboxActivity extends AppCompatActivity {
         progressDialog.show();
         checkForGooglePermissions();
         // Determine MIME type based on file type
-        String mimeType = getMimeType(fileType); // You can write a helper method to get MIME type
+        String mimeType = getMimeType(fileType);
 
         try {
             // Assuming fileUri is passed and refers to the file to be uploaded
@@ -840,6 +873,7 @@ public class InboxActivity extends AppCompatActivity {
                                 .child(senderId)
                                 .push().getKey();
                         model.setMessageId(key);
+                        model.setIsNotified("no");
 
                         // Save the message to Firebase Realtime Database
                         database.getReference().child("chats")
@@ -856,7 +890,39 @@ public class InboxActivity extends AppCompatActivity {
                                         chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
 
                                         // Update the contacts with the last message and timestamp
-                                        updateContacts(model);
+//                                        updateContacts(model);
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("last_message")
+                                                .setValue("sent a file");
+
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("last_sender_name")
+                                                .setValue("");
+
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("message_time")
+                                                .setValue(model.getTimestamp());
+
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("last_message_seen")
+                                                .setValue("false");
+
+                                        // Repeat similar updates for the sender
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("last_message")
+                                                .setValue("sent a file");
+
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("last_sender_name")
+                                                .setValue("You");
+
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("message_time")
+                                                .setValue(model.getTimestamp());
+
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("last_message_seen")
+                                                .setValue("true");
                                         progressDialog.dismiss();
                                     }
                                 });
@@ -883,42 +949,6 @@ public class InboxActivity extends AppCompatActivity {
             default:
                 return "application/octet-stream"; // Default MIME type for unknown file types
         }
-    }
-
-    private void updateContacts(MessageModel model) {
-        // Update contacts with the new message data (last message, timestamp, etc.)
-        database.getReference().child("Contacts").child(receiverId)
-                .child(senderId).child("last_message")
-                .setValue("sent a file");
-
-        database.getReference().child("Contacts").child(receiverId)
-                .child(senderId).child("last_sender_name")
-                .setValue("");
-
-        database.getReference().child("Contacts").child(receiverId)
-                .child(senderId).child("message_time")
-                .setValue(model.getTimestamp());
-
-        database.getReference().child("Contacts").child(receiverId)
-                .child(senderId).child("last_message_seen")
-                .setValue("false");
-
-        // Repeat similar updates for the sender
-        database.getReference().child("Contacts").child(senderId)
-                .child(receiverId).child("last_message")
-                .setValue("sent a file");
-
-        database.getReference().child("Contacts").child(senderId)
-                .child(receiverId).child("last_sender_name")
-                .setValue("You");
-
-        database.getReference().child("Contacts").child(senderId)
-                .child(receiverId).child("message_time")
-                .setValue(model.getTimestamp());
-
-        database.getReference().child("Contacts").child(senderId)
-                .child(receiverId).child("last_message_seen")
-                .setValue("true");
     }
 
 

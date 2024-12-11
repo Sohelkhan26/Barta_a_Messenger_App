@@ -3,6 +3,7 @@ package com.example.barta_a_messenger_app;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -43,7 +44,7 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
             decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106",contact.getLast_message());
         }
         catch (Exception e) {
-            throw new RuntimeException(e);
+            Log.d("ChatListAdapter ", e.getMessage());
         }
 
         if(contact.getLast_message().equals("")){

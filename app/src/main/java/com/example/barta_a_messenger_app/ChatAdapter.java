@@ -1,5 +1,7 @@
 package com.example.barta_a_messenger_app;
 
+import static com.google.common.io.Files.getFileExtension;
+
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -10,6 +12,7 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -85,7 +88,7 @@ public class ChatAdapter extends RecyclerView.Adapter{
                 ((ReceiverViewHolder)holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
             }
         }
-        else if(messageModel.getMessageType().equals( "img")){
+        else if(messageModel.getMessageType().equals("img")){
 //            Log.d("Chat" , messageModel.getMessage());
             if(holder.getClass() == SenderViewHolder.class){
                 ((SenderViewHolder)holder).senderMsg.setVisibility(View.GONE);
@@ -149,7 +152,47 @@ public class ChatAdapter extends RecyclerView.Adapter{
             receiverTime = itemView.findViewById(R.id.receiverTime);
             receivedImage = itemView.findViewById(R.id.received_image);
             receivedFile = itemView.findViewById(R.id.received_file);
+            receivedImage.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    Context c = view.getContext();
+                    int position = getAdapterPosition();
+                    MessageModel messageModel = messageModels.get(position);
+                    openItem(c , messageModel);
+                }
+            });
+            receivedFile.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    Context c = view.getContext();
+                    int position = getAdapterPosition();
+                    MessageModel messageModel = messageModels.get(position);
+                    openItem(c , messageModel);
+                }
+            });
         }
+    }
+    void openItem(Context context , MessageModel messageModel){
+        String fileUrl = messageModel.getMessage();
+//        String fileExtension = getFileExtension(fileUrl); // Function to get file extension
+
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        Uri uri = Uri.parse(fileUrl);
+
+        if (messageModel.getMessageType().equals("pdf")) {
+            // Set MIME type for PDFs
+            intent.setDataAndType(uri, "application/pdf");
+        } else if (messageModel.equals("docx")) {
+            // Set MIME type for Word documents
+            intent.setDataAndType(uri, "application/msword");
+        }else if(messageModel.getMessageType().equals("img")){
+            intent.setDataAndType(uri, "image/*");
+        }else{
+            intent.setDataAndType(uri, "*/*");
+        }
+
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
     }
 
     public class SenderViewHolder extends RecyclerView.ViewHolder {
@@ -170,8 +213,17 @@ public class ChatAdapter extends RecyclerView.Adapter{
                     Context c = view.getContext();
                     int position = getAdapterPosition();
                     MessageModel messageModel = messageModels.get(position);
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(messageModel.getMessage()));
-                    c.startActivity(intent);
+
+                    openItem(c , messageModel);
+                }
+            });
+            sentImage.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    Context c = view.getContext();
+                    int position = getAdapterPosition();
+                    MessageModel messageModel = messageModels.get(position);
+                    openItem(c , messageModel);
                 }
             });
         }
