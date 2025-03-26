@@ -112,9 +112,13 @@ public class InboxActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_inbox);
 
+        Intent intent = getIntent();
+        String fullName = intent.getStringExtra("full_name");
+        String profilePictureUrl = intent.getStringExtra("profilePic");
+
         userName = findViewById(R.id.userName);
         String name = getIntent().getStringExtra("name");
-        userName.setText(name != null ? name : "User");
+        userName.setText(name != null ? name : (fullName!=null ? fullName : "Unnamed User"));
 
         DP = findViewById(R.id.headImageView);
         String profilePictureUrl = getIntent().getStringExtra("profilePic");
