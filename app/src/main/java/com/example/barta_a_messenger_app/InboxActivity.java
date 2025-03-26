@@ -121,7 +121,6 @@ public class InboxActivity extends AppCompatActivity {
         userName.setText(name != null ? name : (fullName!=null ? fullName : "Unnamed User"));
 
         DP = findViewById(R.id.headImageView);
-        String profilePictureUrl = getIntent().getStringExtra("profilePic");
 
         if (profilePictureUrl != null && !profilePictureUrl.isEmpty()) {
             Picasso.get().load(profilePictureUrl).into(DP);
