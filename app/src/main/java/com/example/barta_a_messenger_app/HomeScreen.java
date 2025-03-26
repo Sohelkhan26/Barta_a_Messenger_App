@@ -26,6 +26,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -42,7 +46,11 @@ import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 
+<<<<<<< HEAD
 public class HomeScreen extends BaseActivity {
+=======
+public class HomeScreen extends BaseActivity{
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
 
     private TabLayout tabLayout;
     private ViewPager viewPager;
@@ -55,7 +63,11 @@ public class HomeScreen extends BaseActivity {
     TextView header_user;
     ImageView header_img;
 
+<<<<<<< HEAD
     FirebaseAuth mAuth;
+=======
+    FirebaseAuth mAuth ;
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
     FirebaseUser user;
 
     DatabaseReference databaseReference;
@@ -80,9 +92,15 @@ public class HomeScreen extends BaseActivity {
         tabLayout.setupWithViewPager(viewPager);
 
         viewPagerAdapter vpAdapter = new viewPagerAdapter(getSupportFragmentManager(), FragmentPagerAdapter.BEHAVIOR_RESUME_ONLY_CURRENT_FRAGMENT);
+<<<<<<< HEAD
         vpAdapter.addFragment(new chatFragment(), "CHATS");
         vpAdapter.addFragment(new profileFragment(), "PROFILE");
         vpAdapter.addFragment(new friendRequestFragment(), "REQUEST");
+=======
+        vpAdapter.addFragment(new chatFragment(),"CHATS");
+        vpAdapter.addFragment(new profileFragment(),"PROFILE");
+        vpAdapter.addFragment(new friendRequestFragment(),"REQUEST");
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
 
         viewPager.setAdapter(vpAdapter);
 
@@ -94,20 +112,36 @@ public class HomeScreen extends BaseActivity {
 
         mAuth = FirebaseAuth.getInstance();
         user = mAuth.getCurrentUser();
+<<<<<<< HEAD
         if (user != null) {
+=======
+        if(user!=null){
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
             uid = user.getUid();
         }
 
         database = FirebaseDatabase.getInstance();
         DatabaseReference userRef = database.getReference("user").child(uid);
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
         if (!isNotificationPermissionGranted()) {
             // If not granted, prompt the user to grant permission
             showNotificationPermissionDialog();
             //promptForNotificationPermission();
+<<<<<<< HEAD
         } else {
             Toast.makeText(HomeScreen.this, "notification enabled", Toast.LENGTH_SHORT);
         }
+=======
+        }
+        else{
+            Toast.makeText(HomeScreen.this,"notification enabled",Toast.LENGTH_SHORT);
+        }
+
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
 
         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -119,9 +153,16 @@ public class HomeScreen extends BaseActivity {
                     header_user.setText(name);
                     if (profilePictureUrl != null && !profilePictureUrl.isEmpty()) {
                         Picasso.get().load(profilePictureUrl).into(header_img);
+<<<<<<< HEAD
                     } else {
 
                     }
+=======
+                    }
+                    else {
+
+                     }
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
 
                 } else {
                     // Handle the case where the user data doesn't exist
@@ -134,6 +175,7 @@ public class HomeScreen extends BaseActivity {
             }
         });
 
+<<<<<<< HEAD
         notificationListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -155,11 +197,38 @@ public class HomeScreen extends BaseActivity {
 
                                                     try {
                                                         decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106", message.getMessage());
+=======
+        notificationListener= new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot datasnapshot : snapshot.getChildren()) {
+                    for(DataSnapshot dataSnapshot2 : datasnapshot.getChildren()){
+                        MessageModel message = dataSnapshot2.getValue(MessageModel.class);
+
+                        if(message.getIsNotified().equals("no")){
+
+                            database.getReference().child("user")
+                                            .child(message.getUid()).get()
+                                    .addOnCompleteListener(new OnCompleteListener<DataSnapshot>() {
+                                        @Override
+                                        public void onComplete(@NonNull Task<DataSnapshot> task) {
+                                            if(task.isSuccessful()){
+                                                DataSnapshot ds = task.getResult();
+                                                if(ds.exists()){
+                                                    sendername = ds.child("username").getValue(String.class);
+
+                                                    try{
+                                                        decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106",message.getMessage());
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
                                                     } catch (Exception e) {
                                                         throw new RuntimeException(e);
                                                     }
 
+<<<<<<< HEAD
                                                     new NotificationHelper().notificationDialog(HomeScreen.this, decryptedmessage, sendername);
+=======
+                                                    new NotificationHelper().notificationDialog(HomeScreen.this,decryptedmessage,sendername);
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
                                                     //Log.d("senderName",sendername);
 
                                                 }
@@ -168,6 +237,10 @@ public class HomeScreen extends BaseActivity {
                                     });
                             //Toast.makeText(HomeScreen.this,sendername, Toast.LENGTH_SHORT).show();
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
                             database.getReference().child("chats")
                                     .child(uid).child(datasnapshot.getKey())
                                     .child(dataSnapshot2.getKey())
@@ -187,6 +260,7 @@ public class HomeScreen extends BaseActivity {
                 .child(uid)
                 .addValueEventListener(notificationListener);
 
+<<<<<<< HEAD
         // Add tab selected listener
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
@@ -228,14 +302,24 @@ public class HomeScreen extends BaseActivity {
             public void onPageScrollStateChanged(int state) {
             }
         });
+=======
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
 
     }
 
     @Override
     public void onBackPressed() {
 
+<<<<<<< HEAD
     }
 
+=======
+
+    }
+
+
+
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
     @Override
     protected void onStop() {
         super.onStop();
@@ -296,6 +380,10 @@ public class HomeScreen extends BaseActivity {
             }
         });
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
     }
 
     private boolean isNotificationPermissionGranted() {
@@ -305,10 +393,17 @@ public class HomeScreen extends BaseActivity {
                     .areNotificationsEnabled();
         } else {
             // For versions below Oreo, check if the notification channel is enabled
+<<<<<<< HEAD
             NotificationManager notificationManager
                     = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             return notificationManager != null
                     && notificationManager.getImportance() != NotificationManager.IMPORTANCE_NONE;
+=======
+            NotificationManager notificationManager =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            return notificationManager != null &&
+                    notificationManager.getImportance() != NotificationManager.IMPORTANCE_NONE;
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
         }
     }
 
@@ -323,4 +418,8 @@ public class HomeScreen extends BaseActivity {
         //Toast.makeText(this, "Please enable notification permission", Toast.LENGTH_LONG).show();
     }
 
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
