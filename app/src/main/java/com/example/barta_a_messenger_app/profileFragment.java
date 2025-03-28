@@ -87,16 +87,12 @@ public class profileFragment extends Fragment {
             }
         });
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
         list = new ArrayList<>();
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new ContactAdapter(requireContext(), list);
         recyclerView.setAdapter(adapter);
 
-<<<<<<< HEAD
         // Add click listener to adapter
         adapter.setOnItemClickListener(new ContactAdapter.OnItemClickListener() {
             @Override
@@ -111,8 +107,6 @@ public class profileFragment extends Fragment {
             }
         });
 
-=======
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
         userRef = FirebaseDatabase.getInstance().getReference().child("user").child(uid);
 
         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -132,37 +126,10 @@ public class profileFragment extends Fragment {
                 }
             }
 
-<<<<<<< HEAD
             @Override
             public void onCancelled(@NonNull DatabaseError databaseError) {
                 Toast.makeText(getContext(), "Error: " + databaseError.getMessage(), Toast.LENGTH_SHORT).show();
                 Log.e("FirebaseError", "Error: " + databaseError.getMessage());
-=======
-            // sohel
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-                Toast.makeText(getContext(), "Error: " + databaseError.getMessage(), Toast.LENGTH_SHORT).show();
-
-                Log.e("FirebaseErrorInProfileFragment", "Error: " + databaseError.getMessage());
-
-                switch (databaseError.getCode()) {
-                    case DatabaseError.DISCONNECTED:
-                        Log.e("FirebaseError", "The operation had to be aborted due to a network disconnect.");
-                        break;
-                    case DatabaseError.PERMISSION_DENIED:
-                        Log.e("FirebaseError", "The client doesn't have permission to access the database.");
-                        break;
-                    case DatabaseError.NETWORK_ERROR:
-                        Log.e("FirebaseError", "The operation could not be performed due to a network error.");
-                        break;
-                    case DatabaseError.OPERATION_FAILED:
-                        Log.e("FirebaseError", "The server indicated that this operation failed.");
-                        break;
-                    default:
-                        Log.e("FirebaseError", "An unknown error occurred.");
-                        break;
-                }
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
             }
         });
 
@@ -178,35 +145,21 @@ public class profileFragment extends Fragment {
                     String uid2 = contact.getUid();
 
                     if (uid2 != null) {
-<<<<<<< HEAD
                         DatabaseReference contactUserRef = FirebaseDatabase.getInstance()
                                 .getReference("user").child(uid2);
 
                         contactUserRef.addListenerForSingleValueEvent(new ValueEventListener() {
-=======
-                        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(uid2);
-
-                        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
                             @Override
                             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                 if (dataSnapshot.exists()) {
                                     String profilePictureUrl = dataSnapshot.child("profilePicture").getValue(String.class);
-<<<<<<< HEAD
                                     databaseReference.child(uid2).child("profilePic").setValue(profilePictureUrl);
-=======
-
-//                                contact.setProfilePic(profilePictureUrl);
-                                    databaseReference.child(uid2).child("profilePic").setValue(profilePictureUrl);
-
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
                                     adapter.notifyDataSetChanged();
                                 }
                             }
 
                             @Override
                             public void onCancelled(@NonNull DatabaseError databaseError) {
-<<<<<<< HEAD
                                 Toast.makeText(getContext(), "Error loading profile picture", Toast.LENGTH_SHORT).show();
                             }
                         });
@@ -217,23 +170,6 @@ public class profileFragment extends Fragment {
                             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                 if (dataSnapshot.exists()) {
                                     String status = dataSnapshot.child("status").getValue(String.class);
-=======
-                                // Handle errors
-                            }
-                        });
-
-
-                        DatabaseReference userRef2 = FirebaseDatabase.getInstance().getReference("user").child(uid2);
-
-                        userRef2.addValueEventListener(new ValueEventListener() {
-                            @Override
-                            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                                if (dataSnapshot.exists()) {
-
-                                    String status = dataSnapshot.child("status").getValue(String.class);
-//                                contact.setProfilePic(profilePictureUrl);
-
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
                                     databaseReference.child(uid2).child("status").setValue(status);
                                     adapter.notifyDataSetChanged();
                                 }
@@ -241,56 +177,25 @@ public class profileFragment extends Fragment {
 
                             @Override
                             public void onCancelled(@NonNull DatabaseError databaseError) {
-<<<<<<< HEAD
                                 Toast.makeText(getContext(), "Error loading status", Toast.LENGTH_SHORT).show();
                             }
                         });
                     }
                 }
-=======
-                                // Handle errors
-                            }
-                        });
-                    }
-
-
-                }
-
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-<<<<<<< HEAD
                 Toast.makeText(getContext(), "Error loading contacts", Toast.LENGTH_SHORT).show();
             }
         });
 
-=======
-                // Handle errors
-            }
-        });
-
-//        imgProfile.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                Intent photoIntent = new Intent(Intent.ACTION_PICK);
-//                photoIntent.setType("image/*");
-//                startActivityForResult(photoIntent, 1);
-//            }
-//        });
-
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
         return view;
     }
 
     private void uploadImage() {
         ProgressDialog progressDialog = new ProgressDialog(requireContext());
-<<<<<<< HEAD
         progressDialog.setMessage("Uploading....");
-=======
-        progressDialog.setTitle("Uploading....");
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
         progressDialog.show();
 
         FirebaseStorage.getInstance().getReference("images/" + UUID.randomUUID().toString()).putFile(imagePath)
@@ -310,15 +215,8 @@ public class profileFragment extends Fragment {
                         } else {
                             Toast.makeText(requireContext(), task.getException().getLocalizedMessage(), Toast.LENGTH_SHORT).show();
                         }
-<<<<<<< HEAD
-
                         progressDialog.dismiss();
                     }
-
-=======
-                        progressDialog.dismiss();
-                    }
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
                 });
     }
 
@@ -368,18 +266,6 @@ public class profileFragment extends Fragment {
         imgProfile.setImageBitmap(bitmap);
     }
 
-<<<<<<< HEAD
-=======
-    //    private void logout() {
-//
-//        FirebaseAuth.getInstance().signOut();
-//
-//        Intent intent = new Intent(getActivity(), LoginPageActivity.class);
-//        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-//        startActivity(intent);
-//        getActivity().finish();
-//    }
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
     private void logout() {
         FirebaseAuth.getInstance().signOut();
 
@@ -395,8 +281,4 @@ public class profileFragment extends Fragment {
             });
         });
     }
-<<<<<<< HEAD
-=======
-
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
 }

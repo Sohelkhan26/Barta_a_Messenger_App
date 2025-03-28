@@ -20,7 +20,6 @@ import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 
-<<<<<<< HEAD
 public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHolder> {
 
     private Context context;
@@ -32,21 +31,12 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
 
         void onItemClick(Contact contact);
     }
-=======
-public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.MyViewHolder>{
-//    private ClickListener clickListener;
-
-    Context context;
-    static ArrayList<Contact> list;
-
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
 
     public ContactAdapter(Context context, ArrayList<Contact> list) {
         this.context = context;
         this.list = list;
     }
 
-<<<<<<< HEAD
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
     }
@@ -106,97 +96,4 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.MyViewHo
             profile = itemView.findViewById(R.id.contact_profile);
         }
     }
-=======
-    @NonNull
-    @Override
-    public MyViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = LayoutInflater.from(context).inflate(R.layout.contacts,parent,false);
-        return new MyViewHolder(v);
-    }
-
-
-    public void onBindViewHolder(@NonNull MyViewHolder holder, int position) {
-        Contact contact = list.get(position);
-        holder.contact_name.setText(contact.getFull_name());
-        holder.contact_phone.setText(contact.getPhone_number());
-
-
-        String profilePicUrl = contact.getProfilePic();
-        String status = contact.getStatus();
-
-        if (profilePicUrl != null && !profilePicUrl.isEmpty()) {
-            Picasso.get().load(profilePicUrl).into(holder.profile_pic);
-        }
-        else
-        {
-            // Handle the case where the URL is empty or null
-        }
-
-        if (status.equals("active")) {
-            holder.active_status.setVisibility(View.VISIBLE); // Set the online status indicator to visible
-        } else {
-            holder.active_status.setVisibility(View.INVISIBLE); // Set the online status indicator to invisible
-        }
-
-
-//        Picasso.get().load(contact.getProfilePic()).into(holder.profile_pic);
-
-//        ImageView alertImageView = holder.itemView.findViewById(R.id.danger);
-//
-//        if (record.shouldShowAlert()) {
-//            alertImageView.setVisibility(View.VISIBLE);
-//        } else {
-//            alertImageView.setVisibility(View.INVISIBLE);
-//        }
-
-    }
-
-    public int getItemCount() {
-        if(list!=null){
-            return list.size();
-        }
-        else{
-            return -1;
-        }
-    }
-
-    public static class MyViewHolder extends RecyclerView.ViewHolder{
-        ImageView profile_pic,active_status;
-        TextView contact_name;
-        TextView contact_phone;
-
-
-        public MyViewHolder(@NonNull View itemView) {
-            super(itemView);
-            profile_pic=itemView.findViewById(R.id.contact_image);
-            contact_name=itemView.findViewById(R.id.contact_name);
-            contact_phone=itemView.findViewById(R.id.contact_number);
-            active_status = itemView.findViewById(R.id.online_status);
-
-            itemView.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    Context c = view.getContext();
-                    Intent intent = new Intent(c,InboxActivity.class);
-                    int position = getAdapterPosition();
-                    Contact contact = list.get(position);
-                    intent.putExtra("Name",contact.getFull_name());
-                    intent.putExtra("phone_no",contact.getPhone_number());
-                    intent.putExtra("contact_uid",contact.getUid());
-                    intent.putExtra("profile_pic",contact.getProfilePic());
-
-                    c.startActivity(intent);
-                }
-            });
-        }
-    }
-//    public interface ClickListener{
-//        void onItemClick(int position);
-//    }
-
-//    public void setOnItemClickListener(ClickListener clickListener){
-//        this.clickListener = clickListener;
-//    }
-
->>>>>>> 2a9cdb6f17dc4b4bb22e37f17df83c07534c202c
 }

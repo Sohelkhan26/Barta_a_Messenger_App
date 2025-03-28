@@ -125,11 +125,9 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
         userName = findViewById(R.id.userName);
         String name = getIntent().getStringExtra("name");
-<<<<<<< Updated upstream
+
         userName.setText(name != null ? name : (fullName!=null ? fullName : "Unnamed User"));
-=======
-        userName.setText(name != null ? name : (fullName != null ? fullName : "Unnamed User"));
->>>>>>> Stashed changes
+
 
         DP = findViewById(R.id.headImageView);
 
