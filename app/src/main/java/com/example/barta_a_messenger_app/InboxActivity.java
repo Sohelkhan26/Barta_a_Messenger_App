@@ -24,10 +24,12 @@ import android.os.Bundle;
 
 import android.view.View;
 
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -67,7 +69,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.UUID;
 
-public class InboxActivity extends AppCompatActivity {
+public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMessageSelectListener {
 
     private static final int RC_AUTHORIZE_DRIVE = 10943;
 
@@ -107,6 +109,11 @@ public class InboxActivity extends AppCompatActivity {
 
     String decryptedmessage, decryptedmessagenotification, encryptedMessage;
 
+    ArrayList<MessageModel> selectedMessages;
+    boolean isForwardMode = false;
+
+    private Button forwardButton;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -118,7 +125,11 @@ public class InboxActivity extends AppCompatActivity {
 
         userName = findViewById(R.id.userName);
         String name = getIntent().getStringExtra("name");
+<<<<<<< Updated upstream
         userName.setText(name != null ? name : (fullName!=null ? fullName : "Unnamed User"));
+=======
+        userName.setText(name != null ? name : (fullName != null ? fullName : "Unnamed User"));
+>>>>>>> Stashed changes
 
         DP = findViewById(R.id.headImageView);
 
@@ -423,8 +434,24 @@ public class InboxActivity extends AppCompatActivity {
                 finish();
             }
         });
+        selectedMessages = new ArrayList<>();
 
         chatRecyclerView.setAdapter(chatAdapter);
+
+        forwardButton = findViewById(R.id.forwardButton);
+        chatAdapter.setOnMessageSelectListener(this);
+
+        forwardButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (selectedMessages.size() > 0) {
+                    showContactsDialog();
+                } else {
+                    Toast.makeText(InboxActivity.this, "No messages selected", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
     }
 
     @Override
@@ -810,5 +837,163 @@ public class InboxActivity extends AppCompatActivity {
     private String getFileNameFromUri(Uri uri) {
         DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
         return documentFile.getName();
+    }
+
+    private void showContactsDialog() {
+        database.getReference().child("Contacts").child(senderId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        ArrayList<UserModel> contacts = new ArrayList<>();
+
+                        for (DataSnapshot ds : snapshot.getChildren()) {
+                            String uid = ds.getKey();
+                            if (!uid.equals(receiverId)) { // বর্তমান চ্যাট বাদে অন্য কন্টাক্টগুলি
+                                database.getReference().child("user").child(uid)
+                                        .addListenerForSingleValueEvent(new ValueEventListener() {
+                                            @Override
+                                            public void onDataChange(@NonNull DataSnapshot userSnapshot) {
+                                                UserModel user = userSnapshot.getValue(UserModel.class);
+                                                contacts.add(user);
+
+                                                if (contacts.size() == snapshot.getChildrenCount() - 1) {
+                                                    showForwardDialog(contacts);
+                                                }
+                                            }
+
+                                            @Override
+                                            public void onCancelled(@NonNull DatabaseError error) {
+                                            }
+                                        });
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                    }
+                });
+    }
+
+    private void forwardMessagesTo(UserModel recipient) {
+        for (MessageModel message : selectedMessages) {
+            String key = database.getReference().push().getKey();
+
+            try {
+                // মেসেজ এনক্রিপ্ট করা
+                String encryptedMsg = CryptoHelper.encrypt("H@rrY_p0tter_106", message.getMessage());
+
+                // নতুন ফরওয়ার্ড মেসেজ মডেল তৈরি
+                MessageModel forwardedMessage = new MessageModel(
+                        senderId,
+                        encryptedMsg,
+                        message.getMessageType()
+                );
+                forwardedMessage.setTimestamp(new Date().getTime());
+                forwardedMessage.setMessageId(key);
+                forwardedMessage.setIsNotified("no");
+
+                // মেসেজ সেভ করা ফায়ারবেসে
+                database.getReference().child("chats")
+                        .child(recipient.getUid())
+                        .child(senderId)
+                        .child(key)
+                        .setValue(forwardedMessage);
+
+                // রিসিপিয়েন্টের কন্টাক্টস আপডেট করা
+                database.getReference().child("Contacts")
+                        .child(recipient.getUid())
+                        .child(senderId)
+                        .child("last_message")
+                        .setValue(encryptedMsg);
+
+                database.getReference().child("Contacts")
+                        .child(recipient.getUid())
+                        .child(senderId)
+                        .child("last_message_seen")
+                        .setValue("false");
+
+                database.getReference().child("Contacts")
+                        .child(recipient.getUid())
+                        .child(senderId)
+                        .child("message_time")
+                        .setValue(forwardedMessage.getTimestamp());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        // সাকসেস মেসেজ দেখানো
+        Toast.makeText(InboxActivity.this, "Messages forwarded successfully", Toast.LENGTH_SHORT).show();
+
+        // ফরওয়ার্ড বাটন হাইড করা
+        forwardButton.setVisibility(View.GONE);
+
+        // সিলেকশন ক্লিয়ার করা
+        chatAdapter.clearSelection();
+    }
+
+    private void showForwardDialog(ArrayList<UserModel> contacts) {
+        String[] userNames = new String[contacts.size()];
+        boolean[] checkedItems = new boolean[contacts.size()];
+        ArrayList<UserModel> selectedUsers = new ArrayList<>();
+
+        for (int i = 0; i < contacts.size(); i++) {
+            userNames[i] = contacts.get(i).getUsername();
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Forward Messages");
+        builder.setMultiChoiceItems(userNames, checkedItems, new DialogInterface.OnMultiChoiceClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which, boolean isChecked) {
+                if (isChecked) {
+                    selectedUsers.add(contacts.get(which));
+                } else {
+                    selectedUsers.remove(contacts.get(which));
+                }
+            }
+        });
+
+        builder.setPositiveButton("Send", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (selectedUsers.size() > 0) {
+                    for (UserModel user : selectedUsers) {
+                        forwardMessagesTo(user);
+                    }
+                }
+            }
+        });
+
+        builder.setNegativeButton("Cancel", null);
+        builder.show();
+    }
+
+    @Override
+    public void onMessageSelectModeActivated() {
+        // Show forward button when selection mode is activated
+        forwardButton.setVisibility(View.VISIBLE);
+    }
+
+    @Override
+    public void onMessageSelected(ArrayList<MessageModel> messages) {
+        selectedMessages = messages;
+
+        if (messages.size() == 0) {
+            forwardButton.setVisibility(View.GONE);
+            chatAdapter.clearSelection();
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (forwardButton.getVisibility() == View.VISIBLE) {
+            forwardButton.setVisibility(View.GONE);
+            chatAdapter.clearSelection();
+        } else {
+            super.onBackPressed();
+        }
     }
 }
