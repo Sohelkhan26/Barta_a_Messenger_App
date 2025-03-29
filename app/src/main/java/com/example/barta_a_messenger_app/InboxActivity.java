@@ -53,6 +53,7 @@ import com.google.api.services.drive.model.File;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
@@ -67,6 +68,8 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMessageSelectListener {
@@ -126,8 +129,7 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         userName = findViewById(R.id.userName);
         String name = getIntent().getStringExtra("name");
 
-        userName.setText(name != null ? name : (fullName!=null ? fullName : "Unnamed User"));
-
+        userName.setText(name != null ? name : (fullName != null ? fullName : "Unnamed User"));
 
         DP = findViewById(R.id.headImageView);
 
@@ -210,15 +212,16 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                             .child(receiverId).child("last_message_seen")
                             .setValue("true");
 
-                    database.getReference().child("chats").child(senderId).child(receiverId).removeValue();
-
+                    database.getReference().child("chats")
+                            .child(senderId)
+                            .child(receiverId)
+                            .removeValue();
                 }
-
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-
+                // Handle error
             }
         };
 
@@ -437,12 +440,24 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         chatRecyclerView.setAdapter(chatAdapter);
 
         forwardButton = findViewById(R.id.forwardButton);
+        forwardButton.setVisibility(View.GONE);
         chatAdapter.setOnMessageSelectListener(this);
 
         forwardButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 if (selectedMessages.size() > 0) {
+                    // লগ করা সিলেক্টেড মেসেজগুলো
+                    for (MessageModel message : selectedMessages) {
+                        android.util.Log.d("SelectedMessages",
+                                "Message ID: " + message.getMessageId()
+                                + ", Content: " + message.getMessage()
+                                + ", Type: " + message.getMessageType()
+                                + ", Sender: " + message.getUid()
+                                + ", Timestamp: " + message.getTimestamp()
+                        );
+                    }
+
                     showContactsDialog();
                 } else {
                     Toast.makeText(InboxActivity.this, "No messages selected", Toast.LENGTH_SHORT).show();
@@ -450,9 +465,36 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             }
         });
 
+        // কারেন্ট ইউজারের কন্টাক্টগুলো নিতে
+        database.getReference()
+                .child("Contacts")
+                .child(senderId) // কারেন্ট ইউজারের UID
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        // এখানে snapshot এ কারেন্ট ইউজারের সব কন্টাক্ট পাওয়া যাবে
+                        for (DataSnapshot contactSnapshot : snapshot.getChildren()) {
+                            String contactId = contactSnapshot.getKey(); // কন্টাক্টের UID
+
+                            // কন্টাক্টের ডেটা নিতে
+                            String lastMessage = contactSnapshot.child("last_message").getValue(String.class);
+                            String lastSenderName = contactSnapshot.child("last_sender_name").getValue(String.class);
+                            Long messageTime = contactSnapshot.child("message_time").getValue(Long.class);
+                            String lastMessageSeen = contactSnapshot.child("last_message_seen").getValue(String.class);
+
+                            android.util.Log.d("ContactDebug", "Contact ID: " + contactId);
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        android.util.Log.e("ContactDebug", "Error: " + error.getMessage());
+                    }
+                });
     }
 
     @Override
+
     protected void onStop() {
         super.onStop();
         database.getReference().child("chats")
@@ -476,7 +518,6 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
     private void updateLocalDatabase(MessageModel message) {
         ContentValues values = new ContentValues();
-
         values.put("MESSAGEID", message.getMessageId());
         values.put("MESSAGE", message.getMessage());
         values.put("MESSAGETYPE", message.getMessageType());
@@ -485,7 +526,6 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         values.put("SENDER_ID", message.getUid());
 
         db.insert(dbHelper.chat_table_name, null, values);
-
     }
 
     @Override
@@ -838,29 +878,47 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     }
 
     private void showContactsDialog() {
-        database.getReference().child("Contacts").child(senderId)
+        if (senderId == null) {
+            android.util.Log.e("ContactsDebug", "কারেন্ট ইউজার ID খুঁজে পাওয়া যায়নি!");
+            return;
+        }
+
+        // Contacts/<sender_id> থেকে কন্টাক্টগুলো নিচ্ছি
+        database.getReference()
+                .child("Contacts")
+                .child(senderId)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        ArrayList<UserModel> contacts = new ArrayList<>();
+                        ArrayList<String> userNames = new ArrayList<>();
+                        ArrayList<String> userIds = new ArrayList<>();
 
-                        for (DataSnapshot ds : snapshot.getChildren()) {
-                            String uid = ds.getKey();
-                            if (!uid.equals(receiverId)) { // বর্তমান চ্যাট বাদে অন্য কন্টাক্টগুলি
-                                database.getReference().child("user").child(uid)
+                        for (DataSnapshot contactSnapshot : snapshot.getChildren()) {
+                            String contactId = contactSnapshot.getKey();
+
+                            if (contactId != null && !contactId.equals(receiverId)) {
+                                // user নোড থেকে username নিচ্ছি
+                                database.getReference()
+                                        .child("user")
+                                        .child(contactId)
                                         .addListenerForSingleValueEvent(new ValueEventListener() {
                                             @Override
                                             public void onDataChange(@NonNull DataSnapshot userSnapshot) {
-                                                UserModel user = userSnapshot.getValue(UserModel.class);
-                                                contacts.add(user);
+                                                if (userSnapshot.exists()) {
+                                                    String username = userSnapshot.child("username").getValue(String.class);
+                                                    userNames.add(username);
+                                                    userIds.add(contactId);
 
-                                                if (contacts.size() == snapshot.getChildrenCount() - 1) {
-                                                    showForwardDialog(contacts);
+                                                    // সব কন্টাক্ট লোড হয়ে গেলে ডায়ালগ দেখাবো
+                                                    if (userNames.size() == snapshot.getChildrenCount() - 1) {
+                                                        showForwardDialogWithContacts(userNames, userIds);
+                                                    }
                                                 }
                                             }
 
                                             @Override
                                             public void onCancelled(@NonNull DatabaseError error) {
+                                                android.util.Log.e("ContactsDebug", "Error: " + error.getMessage());
                                             }
                                         });
                             }
@@ -869,117 +927,171 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
+                        android.util.Log.e("ContactsDebug", "Error: " + error.getMessage());
                     }
                 });
     }
 
-    private void forwardMessagesTo(UserModel recipient) {
-        for (MessageModel message : selectedMessages) {
-            String key = database.getReference().push().getKey();
-
-            try {
-                // মেসেজ এনক্রিপ্ট করা
-                String encryptedMsg = CryptoHelper.encrypt("H@rrY_p0tter_106", message.getMessage());
-
-                // নতুন ফরওয়ার্ড মেসেজ মডেল তৈরি
-                MessageModel forwardedMessage = new MessageModel(
-                        senderId,
-                        encryptedMsg,
-                        message.getMessageType()
-                );
-                forwardedMessage.setTimestamp(new Date().getTime());
-                forwardedMessage.setMessageId(key);
-                forwardedMessage.setIsNotified("no");
-
-                // মেসেজ সেভ করা ফায়ারবেসে
-                database.getReference().child("chats")
-                        .child(recipient.getUid())
-                        .child(senderId)
-                        .child(key)
-                        .setValue(forwardedMessage);
-
-                // রিসিপিয়েন্টের কন্টাক্টস আপডেট করা
-                database.getReference().child("Contacts")
-                        .child(recipient.getUid())
-                        .child(senderId)
-                        .child("last_message")
-                        .setValue(encryptedMsg);
-
-                database.getReference().child("Contacts")
-                        .child(recipient.getUid())
-                        .child(senderId)
-                        .child("last_message_seen")
-                        .setValue("false");
-
-                database.getReference().child("Contacts")
-                        .child(recipient.getUid())
-                        .child(senderId)
-                        .child("message_time")
-                        .setValue(forwardedMessage.getTimestamp());
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        // সাকসেস মেসেজ দেখানো
-        Toast.makeText(InboxActivity.this, "Messages forwarded successfully", Toast.LENGTH_SHORT).show();
-
-        // ফরওয়ার্ড বাটন হাইড করা
-        forwardButton.setVisibility(View.GONE);
-
-        // সিলেকশন ক্লিয়ার করা
-        chatAdapter.clearSelection();
-    }
-
-    private void showForwardDialog(ArrayList<UserModel> contacts) {
-        String[] userNames = new String[contacts.size()];
-        boolean[] checkedItems = new boolean[contacts.size()];
-        ArrayList<UserModel> selectedUsers = new ArrayList<>();
-
-        for (int i = 0; i < contacts.size(); i++) {
-            userNames[i] = contacts.get(i).getUsername();
-        }
+    private void showForwardDialogWithContacts(ArrayList<String> userNames, ArrayList<String> userIds) {
+        String[] names = userNames.toArray(new String[0]);
+        boolean[] checkedItems = new boolean[names.length];
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Forward Messages");
-        builder.setMultiChoiceItems(userNames, checkedItems, new DialogInterface.OnMultiChoiceClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which, boolean isChecked) {
-                if (isChecked) {
-                    selectedUsers.add(contacts.get(which));
-                } else {
-                    selectedUsers.remove(contacts.get(which));
-                }
+
+        builder.setMultiChoiceItems(names, checkedItems, (dialog, which, isChecked) -> {
+            String selectedUsername = names[which];
+            String selectedUID = userIds.get(which);
+
+            if (isChecked) {
+                android.util.Log.d("ForwardDebug", "Selected user: " + selectedUsername + " (UID: " + selectedUID + ")");
+            } else {
+                android.util.Log.d("ForwardDebug", "Deselected user: " + selectedUsername + " (UID: " + selectedUID + ")");
             }
         });
 
-        builder.setPositiveButton("Send", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                if (selectedUsers.size() > 0) {
-                    for (UserModel user : selectedUsers) {
-                        forwardMessagesTo(user);
-                    }
+        builder.setPositiveButton("Send", (dialog, which) -> {
+            // সব সিলেক্টেড ইউজারদের জন্য মেসেজ ফরওয়ার্ড করা
+            for (int i = 0; i < checkedItems.length; i++) {
+                if (checkedItems[i]) {
+                    String recipientUID = userIds.get(i);
+                    forwardMessagesTo(recipientUID);
                 }
             }
+
+            // ফরওয়ার্ড বাটন হাইড করা এবং সিলেকশন ক্লিয়ার করা
+            forwardButton.setVisibility(View.GONE);
+            chatAdapter.clearSelection();
         });
 
         builder.setNegativeButton("Cancel", null);
         builder.show();
     }
 
+    private void forwardMessagesTo(String recipientUID) {
+        if (recipientUID == null) {
+            android.util.Log.e("ForwardDebug", "Recipient UID is null");
+            return;
+        }
+
+        for (MessageModel message : selectedMessages) {
+            try {
+                android.util.Log.d("ForwardDebug", "Forwarding message to UID: " + recipientUID);
+
+                // মেসেজ এনক্রিপ্ট করা
+                String encryptedMsg = CryptoHelper.encrypt("H@rrY_p0tter_106", message.getMessage());
+
+                // Firebase এ সেভ করার জন্য কী জেনারেট করা
+                String key = database.getReference().child("chats")
+                        .child(recipientUID)
+                        .child(senderId)
+                        .push().getKey();
+
+                if (key == null) {
+                    continue;
+                }
+
+                MessageModel forwardedMessage = new MessageModel(senderId, encryptedMsg);
+                forwardedMessage.setMessageId(key);
+                forwardedMessage.setTimestamp(new Date().getTime());
+                forwardedMessage.setIsNotified("no");
+                forwardedMessage.setMessageType(message.getMessageType());
+
+                // রিসিপিয়েন্টের চ্যাটে মেসেজ সেভ করা (received message)
+                database.getReference().child("chats")
+                        .child(recipientUID)
+                        .child(senderId)
+                        .child(key)
+                        .setValue(forwardedMessage)
+                        .addOnSuccessListener(unused -> {
+                            // রিসিভারের কন্টাক্টস আপডেট
+                            updateContactInfo(recipientUID, senderId, encryptedMsg, "", forwardedMessage.getTimestamp(), "false");
+
+                            // সেন্ডারের চ্যাটে একই মেসেজ সেভ করা (sent message)
+                            database.getReference().child("chats")
+                                    .child(senderId)
+                                    .child(recipientUID)
+                                    .child(key)
+                                    .setValue(forwardedMessage)
+                                    .addOnSuccessListener(v -> {
+                                        // সেন্ডারের কন্টাক্টস আপডেট
+                                        updateContactInfo(senderId, recipientUID, encryptedMsg, "You", forwardedMessage.getTimestamp(), "true");
+                                    });
+                        })
+                        .addOnFailureListener(e -> {
+                            android.util.Log.e("ForwardDebug", "Error: " + e.getMessage());
+                        });
+
+            } catch (Exception e) {
+                android.util.Log.e("ForwardDebug", "Error: " + e.getMessage());
+            }
+        }
+    }
+
+    private void updateContactInfo(String recipientUID, String senderId, String lastMessage, String lastSenderName, Long messageTime, String lastMessageSeen) {
+        database.getReference().child("Contacts")
+                .child(recipientUID)
+                .child(senderId)
+                .child("last_message")
+                .setValue(lastMessage);
+
+        database.getReference().child("Contacts")
+                .child(recipientUID)
+                .child(senderId)
+                .child("last_sender_name")
+                .setValue(lastSenderName);
+
+        database.getReference().child("Contacts")
+                .child(recipientUID)
+                .child(senderId)
+                .child("message_time")
+                .setValue(messageTime);
+
+        database.getReference().child("Contacts")
+                .child(recipientUID)
+                .child(senderId)
+                .child("last_message_seen")
+                .setValue(lastMessageSeen);
+
+        database.getReference().child("Contacts")
+                .child(senderId)
+                .child(recipientUID)
+                .child("last_message")
+                .setValue(lastMessage);
+
+        database.getReference().child("Contacts")
+                .child(senderId)
+                .child(recipientUID)
+                .child("last_sender_name")
+                .setValue(lastSenderName);
+
+        database.getReference().child("Contacts")
+                .child(senderId)
+                .child(recipientUID)
+                .child("message_time")
+                .setValue(messageTime);
+
+        database.getReference().child("Contacts")
+                .child(senderId)
+                .child(recipientUID)
+                .child("last_message_seen")
+                .setValue(lastMessageSeen);
+    }
+
     @Override
     public void onMessageSelectModeActivated() {
-        // Show forward button when selection mode is activated
-        forwardButton.setVisibility(View.VISIBLE);
+        if (selectedMessages.size() == 0) {
+            forwardButton.setVisibility(View.GONE);
+            chatAdapter.clearSelection();
+        }
     }
 
     @Override
     public void onMessageSelected(ArrayList<MessageModel> messages) {
         selectedMessages = messages;
-
-        if (messages.size() == 0) {
+        if (messages.size() > 0) {
+            forwardButton.setVisibility(View.VISIBLE);
+        } else {
             forwardButton.setVisibility(View.GONE);
             chatAdapter.clearSelection();
         }
