@@ -116,6 +116,8 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     boolean isForwardMode = false;
 
     private Button forwardButton;
+    private LinearLayout actionButtonsLayout;
+    private Button deleteButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -439,9 +441,33 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
         chatRecyclerView.setAdapter(chatAdapter);
 
+        actionButtonsLayout = findViewById(R.id.actionButtonsLayout);
         forwardButton = findViewById(R.id.forwardButton);
-        forwardButton.setVisibility(View.GONE);
-        chatAdapter.setOnMessageSelectListener(this);
+        deleteButton = findViewById(R.id.deleteButton);
+
+        deleteButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (selectedMessages.size() > 0) {
+                    new AlertDialog.Builder(InboxActivity.this)
+                            .setTitle("Delete Messages")
+                            .setMessage("Are you sure you want to delete selected messages?")
+                            .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    for (MessageModel message : selectedMessages) {
+                                        // Delete message logic here
+                                        deleteMessage(message);
+                                    }
+                                    chatAdapter.clearSelection();
+                                    actionButtonsLayout.setVisibility(View.GONE);
+                                }
+                            })
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                }
+            }
+        });
 
         forwardButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -1016,6 +1042,12 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                                     .addOnSuccessListener(v -> {
                                         // সেন্ডারের কন্টাক্টস আপডেট
                                         updateContactInfo(senderId, recipientUID, encryptedMsg, "You", forwardedMessage.getTimestamp(), "true");
+
+                                        // Hide the action buttons and clear selection
+                                        actionButtonsLayout.setVisibility(View.GONE);
+                                        forwardButton.setVisibility(View.GONE);
+                                        deleteButton.setVisibility(View.GONE);
+                                        chatAdapter.clearSelection();
                                     });
                         })
                         .addOnFailureListener(e -> {
@@ -1080,30 +1112,108 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
     @Override
     public void onMessageSelectModeActivated() {
-        if (selectedMessages.size() == 0) {
-            forwardButton.setVisibility(View.GONE);
-            chatAdapter.clearSelection();
+        if (selectedMessages == null) {
+            selectedMessages = new ArrayList<>();
         }
+        actionButtonsLayout.setVisibility(View.VISIBLE);
+        forwardButton.setVisibility(View.VISIBLE);
+        deleteButton.setVisibility(View.VISIBLE);
     }
 
     @Override
     public void onMessageSelected(ArrayList<MessageModel> messages) {
         selectedMessages = messages;
         if (messages.size() > 0) {
+            actionButtonsLayout.setVisibility(View.VISIBLE);
             forwardButton.setVisibility(View.VISIBLE);
+            deleteButton.setVisibility(View.VISIBLE);
         } else {
+            actionButtonsLayout.setVisibility(View.GONE);
             forwardButton.setVisibility(View.GONE);
+            deleteButton.setVisibility(View.GONE);
             chatAdapter.clearSelection();
         }
     }
 
     @Override
     public void onBackPressed() {
-        if (forwardButton.getVisibility() == View.VISIBLE) {
+        if (actionButtonsLayout.getVisibility() == View.VISIBLE) {
+            actionButtonsLayout.setVisibility(View.GONE);
             forwardButton.setVisibility(View.GONE);
+            deleteButton.setVisibility(View.GONE);
             chatAdapter.clearSelection();
         } else {
             super.onBackPressed();
         }
+    }
+
+    private void deleteMessage(MessageModel message) {
+        database.getReference()
+                .child("chats")
+                .child(senderId)
+                .child(receiverId)
+                .child(message.getMessageId())
+                .removeValue()
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void unused) {
+                        // রিসিভারের চ্যাট থেকেও মেসেজ ডিলিট করা
+                        database.getReference()
+                                .child("chats")
+                                .child(receiverId)
+                                .child(senderId)
+                                .child(message.getMessageId())
+                                .removeValue();
+
+                        // লোকাল ডাটাবেস থেকে মেসেজ ডিলিট করা
+                        db = dbHelper.getWritableDatabase();
+                        db.delete(dbHelper.chat_table_name,
+                                "MESSAGEID = ?",
+                                new String[]{message.getMessageId()});
+
+                        // লোকাল মেসেজ লিস্ট থেকে মেসেজ রিমুভ করা
+                        localMessageModel.remove(message);
+                        chatAdapter.notifyDataSetChanged();
+
+                        Toast.makeText(InboxActivity.this, "Message deleted", Toast.LENGTH_SHORT).show();
+
+                        // Check if this was the last message
+                        if (localMessageModel.isEmpty()) {
+                            // Clear last message in contacts for both users
+                            clearLastMessageInContacts();
+                        } else {
+                            // Update with the previous message
+                            MessageModel lastMessage = localMessageModel.get(localMessageModel.size() - 1);
+                            updateContactInfo(receiverId, senderId, lastMessage.getMessage(),
+                                    senderName, lastMessage.getTimestamp(), "yes");
+                            updateContactInfo(senderId, receiverId, lastMessage.getMessage(),
+                                    senderName, lastMessage.getTimestamp(), "yes");
+                        }
+                    }
+                });
+    }
+
+    private void clearLastMessageInContacts() {
+        // Clear last message for sender's contact
+        database.getReference().child("Contacts")
+                .child(senderId)
+                .child(receiverId)
+                .child("last_message").setValue("");
+
+        database.getReference().child("Contacts")
+                .child(senderId)
+                .child(receiverId)
+                .child("last_message_time").setValue(0);
+
+        // Clear last message for receiver's contact
+        database.getReference().child("Contacts")
+                .child(receiverId)
+                .child(senderId)
+                .child("last_message").setValue("");
+
+        database.getReference().child("Contacts")
+                .child(receiverId)
+                .child(senderId)
+                .child("last_message_time").setValue(0);
     }
 }

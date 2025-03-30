@@ -59,6 +59,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.messageModels = messageModels;
         this.context = context;
         this.recId = recId;
+
+        if (context instanceof OnMessageSelectListener) {
+            this.messageSelectListener = (OnMessageSelectListener) context;
+        }
     }
 
     @NonNull
@@ -180,6 +184,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
 
         if (messageSelectListener != null) {
+            if (selectedMessages.isEmpty()) {
+                isSelectionMode = false;
+            }
             messageSelectListener.onMessageSelected(selectedMessages);
         }
     }

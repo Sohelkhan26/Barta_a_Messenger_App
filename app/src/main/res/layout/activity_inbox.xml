@@ -93,16 +93,33 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <Button
-        android:id="@+id/forwardButton"
+    <LinearLayout
+        android:id="@+id/actionButtonsLayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Forward"
+        android:layout_margin="16dp"
+        android:orientation="vertical"
+        android:elevation="8dp"
         android:visibility="gone"
-        android:backgroundTint="@color/blue"
-        android:textColor="@color/white"
         app:layout_constraintTop_toBottomOf="@id/Top_layout"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <Button
+            android:id="@+id/forwardButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Forward"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/deleteButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Delete"
+            android:visibility="gone" />
+
+    </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/chatRecyclerView"
@@ -115,7 +132,7 @@
         android:padding="20dp"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         app:layout_constraintBottom_toTopOf="@+id/inputMessage"
-        app:layout_constraintTop_toBottomOf="@+id/forwardButton"
+        app:layout_constraintTop_toBottomOf="@+id/Top_layout"
         app:stackFromEnd="true"/>
 
     <FrameLayout
