@@ -161,7 +161,6 @@ public class HomeScreen extends BaseActivity {
                                                     new NotificationHelper().notificationDialog(HomeScreen.this, decryptedmessage, sendername);
 
                                                     //Log.d("senderName",sendername);
-
                                                 }
                                             }
                                         }
@@ -227,7 +226,6 @@ public class HomeScreen extends BaseActivity {
             public void onPageScrollStateChanged(int state) {
             }
         });
-
     }
 
     @Override
@@ -323,4 +321,3 @@ public class HomeScreen extends BaseActivity {
         //Toast.makeText(this, "Please enable notification permission", Toast.LENGTH_LONG).show();
     }
 }
-

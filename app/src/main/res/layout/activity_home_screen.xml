@@ -87,6 +87,4 @@
         android:layout_gravity="bottom|end"
         />
 
-
-
 </RelativeLayout>

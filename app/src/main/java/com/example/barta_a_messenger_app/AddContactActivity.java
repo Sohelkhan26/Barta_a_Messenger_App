@@ -23,14 +23,14 @@ import com.hbb20.CountryCodePicker;
 
 public class AddContactActivity extends AppCompatActivity {
 
-    String fname,phone,uid;
+    String fname, phone, uid;
     EditText name, phone_number;
     Button save;
     AppCompatImageView backButton;
     private FirebaseAuth mAuth;
     CountryCodePicker countryCodePicker;
 
-    DatabaseReference databaseReference,reference;
+    DatabaseReference databaseReference, reference;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -51,7 +51,7 @@ public class AddContactActivity extends AppCompatActivity {
         databaseReference = FirebaseDatabase.getInstance().getReference();
         reference = FirebaseDatabase.getInstance().getReference();
 
-        if(currentUser != null){
+        if (currentUser != null) {
             uid = currentUser.getUid();
         }
 
@@ -62,11 +62,9 @@ public class AddContactActivity extends AppCompatActivity {
             }
 
             private void addContact() {
-                if(!countryCodePicker.isValidFullNumber()){
+                if (!countryCodePicker.isValidFullNumber()) {
                     phone_number.setError("Invalid phone number");
-                }
-
-                else {
+                } else {
 //                    fname = name.getText().toString().trim();
                     phone = countryCodePicker.getFullNumberWithPlus();
 
@@ -75,27 +73,25 @@ public class AddContactActivity extends AppCompatActivity {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot snapshot) {
                             String phone_numb = snapshot.child("phone").getValue().toString();
-                            if (!phone_numb.equals(phone)){
+                            if (!phone_numb.equals(phone)) {
                                 databaseReference.child("All Accounts").child(phone).addListenerForSingleValueEvent(new ValueEventListener() {
                                     @Override
                                     public void onDataChange(@NonNull DataSnapshot snapshot) {
-                                        if (snapshot.exists()){
+                                        if (snapshot.exists()) {
 
                                             saveContact(snapshot.child("uid").getValue().toString());
-                                        }
-                                        else {
+                                        } else {
                                             Toast.makeText(AddContactActivity.this, "Phone number doesn't exists", Toast.LENGTH_SHORT).show();
-
 
                                         }
                                     }
+
                                     @Override
                                     public void onCancelled(@NonNull DatabaseError error) {
 
                                     }
                                 });
-                            }
-                            else {
+                            } else {
                                 phone_number.setError("Invalid phone number");
                             }
                         }
@@ -106,9 +102,6 @@ public class AddContactActivity extends AppCompatActivity {
                         }
                     });
 
-
-
-
                 }
             }
         });
@@ -116,15 +109,20 @@ public class AddContactActivity extends AppCompatActivity {
         backButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(AddContactActivity.this,HomeScreen.class);
+                Intent intent = new Intent(AddContactActivity.this, HomeScreen.class);
 
                 startActivity(intent);
                 finish();
             }
         });
+
+        // Add Discover Contacts button click action
+        Button discoverContactsButton = findViewById(R.id.discover_contacts_button);
+        discoverContactsButton.setOnClickListener(v -> {
+            Intent intent = new Intent(AddContactActivity.this, ContactDiscoveryActivity.class);
+            startActivity(intent);
+        });
     }
-
-
 
     private void saveContact(String contact_uid) {
 //        Contact contact = new Contact(fname,phone,contact_uid,"");
@@ -132,7 +130,7 @@ public class AddContactActivity extends AppCompatActivity {
 //        name.setText("");
 //        phone_number.setText("");
 
-        Request request = new Request("",phone,uid,contact_uid,"pending");
+        Request request = new Request("", phone, uid, contact_uid, "pending");
 
         databaseReference.child("FriendRequestPending").child(contact_uid).child(uid).setValue(request);
 
@@ -141,6 +139,5 @@ public class AddContactActivity extends AppCompatActivity {
         Toast.makeText(this, "Friend request sent", Toast.LENGTH_SHORT).show();
 
     }
-
 
 }
