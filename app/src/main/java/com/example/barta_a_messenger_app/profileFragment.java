@@ -87,10 +87,9 @@ public class profileFragment extends Fragment {
             }
         });
 
-
         list = new ArrayList<>();
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
-        adapter = new ContactAdapter(requireContext(), list);
+        adapter = new ContactAdapter(list, requireContext(), false);
         recyclerView.setAdapter(adapter);
 
         // Add click listener to adapter

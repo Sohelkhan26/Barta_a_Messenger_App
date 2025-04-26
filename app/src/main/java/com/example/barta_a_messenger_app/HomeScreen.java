@@ -83,6 +83,7 @@ public class HomeScreen extends BaseActivity {
         vpAdapter.addFragment(new chatFragment(), "CHATS");
         vpAdapter.addFragment(new profileFragment(), "PROFILE");
         vpAdapter.addFragment(new friendRequestFragment(), "REQUEST");
+        vpAdapter.addFragment(new GroupFragment(), "GROUPS");
 
         viewPager.setAdapter(vpAdapter);
 
@@ -199,6 +200,9 @@ public class HomeScreen extends BaseActivity {
                         break;
                     case 2: // REQUEST tab
                         // Handle request tab click
+                        break;
+                    case 3: // GROUPS tab
+                        // Handle groups tab click
                         break;
                 }
             }

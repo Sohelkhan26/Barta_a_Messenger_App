@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -20,40 +21,58 @@ import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 
-public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHolder> {
+public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ContactViewHolder> {
 
-    private Context context;
-    private ArrayList<Contact> list;
-    private OnItemClickListener listener;
-
-    // Interface for click listener
+    // Add interface for click listener
     public interface OnItemClickListener {
-
         void onItemClick(Contact contact);
     }
 
-    public ContactAdapter(Context context, ArrayList<Contact> list) {
+    private ArrayList<Contact> contacts;
+    private Context context;
+    private boolean isSelectionMode;
+    private GroupCreationActivity groupCreationActivity;
+    private OnItemClickListener listener;
+
+    public ContactAdapter(ArrayList<Contact> contacts, Context context, boolean isSelectionMode) {
+        this.contacts = contacts;
         this.context = context;
-        this.list = list;
+        this.isSelectionMode = isSelectionMode;
+        if (context instanceof GroupCreationActivity) {
+            this.groupCreationActivity = (GroupCreationActivity) context;
+        }
     }
 
+    // Add method to set click listener
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
     }
 
     @NonNull
     @Override
-    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(context).inflate(R.layout.contact_item, parent, false);
-        return new ViewHolder(view);
+    public ContactViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(context).inflate(R.layout.item_contact, parent, false);
+        return new ContactViewHolder(view);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        Contact contact = list.get(position);
-        holder.name.setText(contact.getFull_name());
-        holder.phone.setText(contact.getPhone_number());
-        holder.status.setText(contact.getStatus());
+    public void onBindViewHolder(@NonNull ContactViewHolder holder, int position) {
+        Contact contact = contacts.get(position);
+        holder.nameTextView.setText(contact.getFull_name());
+        holder.phoneTextView.setText(contact.getPhone_number());
+
+        if (isSelectionMode) {
+            holder.checkBox.setVisibility(View.VISIBLE);
+            holder.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                if (isChecked) {
+                    groupCreationActivity.onContactSelected(contact);
+                } else {
+                    groupCreationActivity.onContactDeselected(contact);
+                }
+            });
+        } else {
+            holder.checkBox.setVisibility(View.GONE);
+        }
 
         // Load profile picture using Picasso
         if (contact.getProfilePic() != null && !contact.getProfilePic().isEmpty()) {
@@ -64,35 +83,35 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
             holder.profile.setImageResource(R.drawable.default_profile);
         }
 
-        // Set click listener
-        holder.itemView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(context, InboxActivity.class);
-                intent.putExtra("uid", contact.getUid());
-                intent.putExtra("full_name", contact.getFull_name());
-                intent.putExtra("profilePic", contact.getProfilePic());
-                intent.putExtra("phone", contact.getPhone_number());
-                context.startActivity(intent);
+        // Set click listener on item view
+        holder.itemView.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onItemClick(contact);
             }
         });
     }
 
     @Override
     public int getItemCount() {
-        return list.size();
+        return contacts.size();
     }
 
-    public class ViewHolder extends RecyclerView.ViewHolder {
+    public void updateContacts(ArrayList<Contact> newContacts) {
+        this.contacts = newContacts;
+        notifyDataSetChanged();
+    }
 
-        TextView name, phone, status;
+    static class ContactViewHolder extends RecyclerView.ViewHolder {
+        TextView nameTextView;
+        TextView phoneTextView;
+        CheckBox checkBox;
         ImageView profile;
 
-        public ViewHolder(@NonNull View itemView) {
+        public ContactViewHolder(@NonNull View itemView) {
             super(itemView);
-            name = itemView.findViewById(R.id.contact_name);
-            phone = itemView.findViewById(R.id.contact_phone);
-            status = itemView.findViewById(R.id.contact_status);
+            nameTextView = itemView.findViewById(R.id.contact_name);
+            phoneTextView = itemView.findViewById(R.id.contact_phone);
+            checkBox = itemView.findViewById(R.id.contact_checkbox);
             profile = itemView.findViewById(R.id.contact_profile);
         }
     }

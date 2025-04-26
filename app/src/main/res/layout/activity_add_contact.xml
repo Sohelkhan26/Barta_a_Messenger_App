@@ -204,6 +204,18 @@
             android:textSize="16sp"
             android:textStyle="bold" />
 
+        <androidx.constraintlayout.utils.widget.MotionButton
+            android:id="@+id/create_group_button"
+            android:layout_width="219dp"
+            android:layout_height="56dp"
+            android:layout_margin="30dp"
+            android:backgroundTint="#3771AE"
+            android:padding="16dp"
+            android:text="Create Group"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
     </LinearLayout>
 
 </ScrollView>

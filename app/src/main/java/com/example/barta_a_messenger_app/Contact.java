@@ -1,32 +1,33 @@
 package com.example.barta_a_messenger_app;
 
 public class Contact {
+
     private String full_name;
     private String phone_number;
     private String uid;
     private String profilePic;
     private String status;
 
-    private String last_message,last_sender_name, last_message_seen;
-
+    private String last_message, last_sender_name, last_message_seen;
 
     private Long message_time;
 
+    private boolean isSelected;
 
     public Contact() {
     }
 
-
-    public Contact(String full_name, String phone_number, String uid, String profilePic, String status, String last_message, Long message_time,String last_sender_name,String last_message_seen) {
+    public Contact(String full_name, String phone_number, String uid, String profilePic, String status, String last_message, Long message_time, String last_sender_name, String last_message_seen) {
         this.full_name = full_name;
         this.phone_number = phone_number;
         this.uid = uid;
-        this.profilePic=profilePic;
-        this.status=status;
-        this.last_message=last_message;
-        this.message_time=message_time;
-        this.last_sender_name=last_sender_name;
-        this.last_message_seen=last_message_seen;
+        this.profilePic = profilePic;
+        this.status = status;
+        this.last_message = last_message;
+        this.message_time = message_time;
+        this.last_sender_name = last_sender_name;
+        this.last_message_seen = last_message_seen;
+        this.isSelected = false;
     }
 
     public String getLast_message() {
@@ -61,7 +62,9 @@ public class Contact {
         return phone_number;
     }
 
-    public String getProfilePic(){ return profilePic; }
+    public String getProfilePic() {
+        return profilePic;
+    }
 
     public String getStatus() {
         return status;
@@ -75,7 +78,9 @@ public class Contact {
         this.phone_number = phone_number;
     }
 
-    public void setProfilePic(String profilePic) { this.profilePic = profilePic;}
+    public void setProfilePic(String profilePic) {
+        this.profilePic = profilePic;
+    }
 
     public void setStatus(String status) {
         this.status = status;
@@ -95,5 +100,13 @@ public class Contact {
 
     public void setLast_sender_name(String last_sender_name) {
         this.last_sender_name = last_sender_name;
+    }
+
+    public boolean isSelected() {
+        return isSelected;
+    }
+
+    public void setSelected(boolean selected) {
+        isSelected = selected;
     }
 }

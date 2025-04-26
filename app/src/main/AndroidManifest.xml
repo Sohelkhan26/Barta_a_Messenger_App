@@ -76,6 +76,12 @@
         <activity
             android:name=".ContactDiscoveryActivity"
             android:exported="false" />
+        <activity
+            android:name=".GroupCreationActivity"
+            android:exported="false" />
+        <activity
+            android:name=".GroupInboxActivity"
+            android:exported="false" />
 
         <service
             android:name=".FCMNotificationService"

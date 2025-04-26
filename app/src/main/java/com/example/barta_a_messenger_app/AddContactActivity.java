@@ -122,6 +122,13 @@ public class AddContactActivity extends AppCompatActivity {
             Intent intent = new Intent(AddContactActivity.this, ContactDiscoveryActivity.class);
             startActivity(intent);
         });
+
+        // Add Create Group button click action
+        Button createGroupButton = findViewById(R.id.create_group_button);
+        createGroupButton.setOnClickListener(v -> {
+            Intent intent = new Intent(AddContactActivity.this, GroupCreationActivity.class);
+            startActivity(intent);
+        });
     }
 
     private void saveContact(String contact_uid) {

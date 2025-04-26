@@ -90,34 +90,61 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         MessageModel messageModel = messageModels.get(position);
 
-        if (messageModel.getMessageType().equals("msg")) {
+        if (messageModel.getMessageType() == null || messageModel.getMessageType().equals("msg")) {
             if (holder.getClass() == SenderViewHolder.class) {
                 ((SenderViewHolder) holder).sentImage.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).senderMsg.setVisibility(View.VISIBLE);
                 ((SenderViewHolder) holder).senderMsg.setText(messageModel.getMessage());
                 ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+
+                if (messageModel.isGroupMessage()) {
+                    ((SenderViewHolder) holder).senderName.setVisibility(View.VISIBLE);
+                    ((SenderViewHolder) holder).senderName.setText(messageModel.getSenderName());
+                } else {
+                    ((SenderViewHolder) holder).senderName.setVisibility(View.GONE);
+                }
             } else {
                 ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.VISIBLE);
                 ((ReceiverViewHolder) holder).receiverMsg.setText(messageModel.getMessage());
                 ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+
+                if (messageModel.isGroupMessage()) {
+                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.VISIBLE);
+                    ((ReceiverViewHolder) holder).receiverName.setText(messageModel.getSenderName());
+                } else {
+                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.GONE);
+                }
             }
         } else if (messageModel.getMessageType().equals("img")) {
-//            Log.d("Chat" , messageModel.getMessage());
             if (holder.getClass() == SenderViewHolder.class) {
                 ((SenderViewHolder) holder).senderMsg.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).sentImage.setVisibility(View.VISIBLE);
                 Picasso.get().load(messageModel.getMessage()).into(((SenderViewHolder) holder).sentImage);
                 ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+
+                if (messageModel.isGroupMessage()) {
+                    ((SenderViewHolder) holder).senderName.setVisibility(View.VISIBLE);
+                    ((SenderViewHolder) holder).senderName.setText(messageModel.getSenderName());
+                } else {
+                    ((SenderViewHolder) holder).senderName.setVisibility(View.GONE);
+                }
             } else {
                 ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.VISIBLE);
                 Picasso.get().load(messageModel.getMessage()).into(((ReceiverViewHolder) holder).receivedImage);
                 ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+
+                if (messageModel.isGroupMessage()) {
+                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.VISIBLE);
+                    ((ReceiverViewHolder) holder).receiverName.setText(messageModel.getSenderName());
+                } else {
+                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.GONE);
+                }
             }
         } else {
             if (holder.getClass() == SenderViewHolder.class) {
@@ -130,6 +157,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     ((SenderViewHolder) holder).sentFile.setImageResource(R.drawable.word_icon);
                 }
                 ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+
+                if (messageModel.isGroupMessage()) {
+                    ((SenderViewHolder) holder).senderName.setVisibility(View.VISIBLE);
+                    ((SenderViewHolder) holder).senderName.setText(messageModel.getSenderName());
+                } else {
+                    ((SenderViewHolder) holder).senderName.setVisibility(View.GONE);
+                }
             } else {
                 ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.VISIBLE);
                 ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.GONE);
@@ -140,6 +174,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     ((ReceiverViewHolder) holder).receivedFile.setImageResource(R.drawable.word_icon);
                 }
                 ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+
+                if (messageModel.isGroupMessage()) {
+                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.VISIBLE);
+                    ((ReceiverViewHolder) holder).receiverName.setText(messageModel.getSenderName());
+                } else {
+                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.GONE);
+                }
             }
         }
 
@@ -203,16 +244,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public class ReceiverViewHolder extends RecyclerView.ViewHolder {
 
-        TextView receiverMsg, receiverTime;
-
+        TextView receiverMsg, receiverTime, receiverName;
         ImageView receivedImage;
         ImageButton receivedFile;
 
         public ReceiverViewHolder(@NonNull View itemView) {
             super(itemView);
-
             receiverMsg = itemView.findViewById(R.id.receiverText);
             receiverTime = itemView.findViewById(R.id.receiverTime);
+            receiverName = itemView.findViewById(R.id.receiverName);
             receivedImage = itemView.findViewById(R.id.received_image);
             receivedFile = itemView.findViewById(R.id.received_file);
             receivedImage.setOnClickListener(new View.OnClickListener() {
@@ -261,15 +301,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public class SenderViewHolder extends RecyclerView.ViewHolder {
 
-        TextView senderMsg, senderTime;
+        TextView senderMsg, senderTime, senderName;
         ImageView sentImage;
         ImageButton sentFile;
 
         public SenderViewHolder(@NonNull View itemView) {
             super(itemView);
-
             senderMsg = itemView.findViewById(R.id.senderText);
             senderTime = itemView.findViewById(R.id.senderTime);
+            senderName = itemView.findViewById(R.id.senderName);
             sentImage = itemView.findViewById(R.id.sent_image);
             sentFile = itemView.findViewById(R.id.sent_file);
 

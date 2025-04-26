@@ -100,7 +100,9 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     Uri imagePath, fileUri;
     String imageUrl, fileUrl;
 
-    String senderRoom, receiverRoom, senderId, receiverId;
+    private String senderRoom, receiverRoom, senderId, receiverId;
+    private boolean isGroupChat = false;
+    private String groupId;
 
     ArrayList<MessageModel> localMessageModel;
 
@@ -127,6 +129,8 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         Intent intent = getIntent();
         String fullName = intent.getStringExtra("full_name");
         String profilePictureUrl = intent.getStringExtra("profilePic");
+        isGroupChat = intent.getBooleanExtra("isGroupChat", false);
+        groupId = intent.getStringExtra("groupId");
 
         userName = findViewById(R.id.userName);
         String name = getIntent().getStringExtra("name");
@@ -153,21 +157,13 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         senderId = mAuth.getCurrentUser().getUid();
         receiverId = getIntent().getStringExtra("uid");
 
-        database.getReference().child("user").child(senderId)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        senderName = snapshot.child("username").getValue(String.class);
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-
-                    }
-                });
-
-        senderRoom = senderId + receiverId;
-        receiverRoom = receiverId + senderId;
+        if (isGroupChat) {
+            senderRoom = groupId;
+            receiverRoom = groupId;
+        } else {
+            senderRoom = senderId + receiverId;
+            receiverRoom = receiverId + senderId;
+        }
 
         dbHelper.chat_table_name = "t_" + senderRoom;
 
@@ -210,9 +206,11 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                         chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
                     }
 
-                    database.getReference().child("Contacts").child(senderId)
-                            .child(receiverId).child("last_message_seen")
-                            .setValue("true");
+                    if (!isGroupChat) {
+                        database.getReference().child("Contacts").child(senderId)
+                                .child(receiverId).child("last_message_seen")
+                                .setValue("true");
+                    }
 
                     database.getReference().child("chats")
                             .child(senderId)
@@ -293,78 +291,7 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             @Override
             public void onClick(View view) {
                 String message = inputMessage.getText().toString();
-                if (!message.isEmpty()) {
-
-                    try {
-                        encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", message);
-
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    MessageModel model;
-                    model = new MessageModel(senderId, encryptedMessage);
-                    model.setTimestamp(new Date().getTime());
-                    inputMessage.setText("");
-
-                    String key = database.getReference().child("chats")
-                            .child(receiverId)
-                            .child(senderId)
-                            .push().getKey();
-
-                    model.setMessageId(key);
-                    model.setIsNotified("no");
-
-                    database.getReference().child("chats")
-                            .child(receiverId)
-                            .child(senderId)
-                            .child(key)
-                            .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
-                        @Override
-                        public void onSuccess(Void unused) {
-                            model.setMessage(message);
-                            updateLocalDatabase(model);
-
-                            localMessageModel.add(model);
-                            chatAdapter.notifyDataSetChanged();
-                            chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
-
-                            database.getReference().child("Contacts").child(receiverId)
-                                    .child(senderId).child("last_message")
-                                    .setValue(encryptedMessage);
-
-                            database.getReference().child("Contacts").child(receiverId)
-                                    .child(senderId).child("last_sender_name")
-                                    .setValue("");
-
-                            database.getReference().child("Contacts").child(receiverId)
-                                    .child(senderId).child("message_time")
-                                    .setValue(model.getTimestamp());
-
-                            database.getReference().child("Contacts").child(receiverId)
-                                    .child(senderId).child("last_message_seen")
-                                    .setValue("false");
-
-                            database.getReference().child("Contacts").child(senderId)
-                                    .child(receiverId).child("last_message")
-                                    .setValue(encryptedMessage);
-
-                            database.getReference().child("Contacts").child(senderId)
-                                    .child(receiverId).child("last_sender_name")
-                                    .setValue("You");
-
-                            database.getReference().child("Contacts").child(senderId)
-                                    .child(receiverId).child("message_time")
-                                    .setValue(model.getTimestamp());
-
-                            database.getReference().child("Contacts").child(senderId)
-                                    .child(receiverId).child("last_message_seen")
-                                    .setValue("true");
-                        }
-                    });
-
-                }
-
+                sendMessage(message);
             }
         });
 
@@ -1215,5 +1142,68 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                 .child(receiverId)
                 .child(senderId)
                 .child("last_message_time").setValue(0);
+    }
+
+    private void sendMessage(String message) {
+        if (message.isEmpty()) {
+            return;
+        }
+
+        String messageId = database.getReference().child("Messages").push().getKey();
+        if (messageId == null) {
+            return;
+        }
+
+        Map<String, Object> messageData = new HashMap<>();
+        messageData.put("messageId", messageId);
+        messageData.put("senderId", mAuth.getCurrentUser().getUid());
+        messageData.put("message", message);
+        messageData.put("timestamp", System.currentTimeMillis());
+        messageData.put("isGroupMessage", isGroupChat);
+
+        if (isGroupChat) {
+            // For group chat, store message under group's messages
+            database.getReference().child("GroupMessages").child(groupId).child(messageId)
+                    .setValue(messageData)
+                    .addOnSuccessListener(aVoid -> {
+                        // Update last message for all group members
+                        Map<String, Object> lastMessageData = new HashMap<>();
+                        lastMessageData.put("lastMessage", message);
+                        lastMessageData.put("timestamp", System.currentTimeMillis());
+                        lastMessageData.put("lastSenderId", mAuth.getCurrentUser().getUid());
+
+                        database.getReference().child("Groups").child(groupId).child("members")
+                                .get()
+                                .addOnSuccessListener(dataSnapshot -> {
+                                    if (dataSnapshot.exists()) {
+                                        for (DataSnapshot memberSnapshot : dataSnapshot.getChildren()) {
+                                            String memberId = memberSnapshot.getValue(String.class);
+                                            if (memberId != null) {
+                                                database.getReference().child("Chats").child(memberId)
+                                                        .child(groupId).updateChildren(lastMessageData);
+                                            }
+                                        }
+                                    }
+                                });
+                    });
+        } else {
+            // For individual chat
+            database.getReference().child("Messages").child(senderRoom).child(messageId)
+                    .setValue(messageData)
+                    .addOnSuccessListener(aVoid -> {
+                        // Update last message
+                        Map<String, Object> lastMessageData = new HashMap<>();
+                        lastMessageData.put("lastMessage", message);
+                        lastMessageData.put("timestamp", System.currentTimeMillis());
+                        lastMessageData.put("lastSenderId", mAuth.getCurrentUser().getUid());
+
+                        database.getReference().child("Chats").child(mAuth.getCurrentUser().getUid())
+                                .child(senderRoom).updateChildren(lastMessageData);
+                        database.getReference().child("Chats").child(senderRoom)
+                                .child(mAuth.getCurrentUser().getUid()).updateChildren(lastMessageData);
+                    });
+        }
+
+        inputMessage.setText("");
     }
 }
