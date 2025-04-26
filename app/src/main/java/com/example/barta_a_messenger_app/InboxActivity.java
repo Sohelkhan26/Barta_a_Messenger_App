@@ -600,6 +600,10 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
         GoogleSignInAccount mAccount = GoogleSignIn.getLastSignedInAccount(this);
 
+        if(mAccount == null){
+            Toast.makeText(this, "No Valid Google account signed in. Cannot upload image.", Toast.LENGTH_LONG).show();
+            return;
+        }
         GoogleAccountCredential credential
                 = GoogleAccountCredential.usingOAuth2(
                         getApplicationContext(), Collections.singleton(Scopes.DRIVE_FILE));
@@ -616,6 +620,11 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     }
 
     private void checkForGooglePermissions() {
+        GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(getApplicationContext());
+        if (account == null) {
+            Toast.makeText(this, "No Google account signed in. Please sign in with a valid Google account to upload files.", Toast.LENGTH_LONG).show();
+            return;
+        }
 
         if (!GoogleSignIn.hasPermissions(
                 GoogleSignIn.getLastSignedInAccount(getApplicationContext()),
@@ -633,6 +642,11 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     }
 
     private void uploadImage() {
+        GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(getApplicationContext());
+        if (account == null) {
+            Toast.makeText(this, "No Google account signed in. Cannot upload image.", Toast.LENGTH_LONG).show();
+            return;
+        }
         ProgressDialog progressDialog = new ProgressDialog(this);
         progressDialog.setTitle("Uploading....");
         progressDialog.show();
