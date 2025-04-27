@@ -100,9 +100,7 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     Uri imagePath, fileUri;
     String imageUrl, fileUrl;
 
-    private String senderRoom, receiverRoom, senderId, receiverId;
-    private boolean isGroupChat = false;
-    private String groupId;
+    String senderRoom, receiverRoom, senderId, receiverId;
 
     ArrayList<MessageModel> localMessageModel;
 
@@ -129,8 +127,6 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         Intent intent = getIntent();
         String fullName = intent.getStringExtra("full_name");
         String profilePictureUrl = intent.getStringExtra("profilePic");
-        isGroupChat = intent.getBooleanExtra("isGroupChat", false);
-        groupId = intent.getStringExtra("groupId");
 
         userName = findViewById(R.id.userName);
         String name = getIntent().getStringExtra("name");
@@ -157,13 +153,21 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         senderId = mAuth.getCurrentUser().getUid();
         receiverId = getIntent().getStringExtra("uid");
 
-        if (isGroupChat) {
-            senderRoom = groupId;
-            receiverRoom = groupId;
-        } else {
-            senderRoom = senderId + receiverId;
-            receiverRoom = receiverId + senderId;
-        }
+        database.getReference().child("user").child(senderId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        senderName = snapshot.child("username").getValue(String.class);
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+
+                    }
+                });
+
+        senderRoom = senderId + receiverId;
+        receiverRoom = receiverId + senderId;
 
         dbHelper.chat_table_name = "t_" + senderRoom;
 
@@ -206,11 +210,9 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                         chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
                     }
 
-                    if (!isGroupChat) {
-                        database.getReference().child("Contacts").child(senderId)
-                                .child(receiverId).child("last_message_seen")
-                                .setValue("true");
-                    }
+                    database.getReference().child("Contacts").child(senderId)
+                            .child(receiverId).child("last_message_seen")
+                            .setValue("true");
 
                     database.getReference().child("chats")
                             .child(senderId)
@@ -237,34 +239,34 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
                                 database.getReference().child("user")
                                         .child(message.getUid()).get().addOnCompleteListener(new OnCompleteListener<DataSnapshot>() {
-                                    @Override
-                                    public void onComplete(@NonNull Task<DataSnapshot> task) {
-                                        if (task.isSuccessful()) {
-                                            DataSnapshot ds = task.getResult();
-                                            if (ds.exists()) {
-                                                messageSenderName = ds.child("username").getValue(String.class);
+                                            @Override
+                                            public void onComplete(@NonNull Task<DataSnapshot> task) {
+                                                if (task.isSuccessful()) {
+                                                    DataSnapshot ds = task.getResult();
+                                                    if (ds.exists()) {
+                                                        messageSenderName = ds.child("username").getValue(String.class);
 
-                                                try {
-                                                    decryptedmessagenotification = CryptoHelper.decrypt("H@rrY_p0tter_106", message.getMessage());
-                                                } catch (Exception e) {
-                                                    throw new RuntimeException(e);
+                                                        try {
+                                                            decryptedmessagenotification = CryptoHelper.decrypt("H@rrY_p0tter_106", message.getMessage());
+                                                        } catch (Exception e) {
+                                                            throw new RuntimeException(e);
+                                                        }
+
+                                                        if (message.getMessageType().equals("img")) {
+                                                            decryptedmessagenotification = "sent an image";
+                                                        }
+
+                                                        NotificationHelper.notificationDialog(InboxActivity.this, decryptedmessagenotification, messageSenderName);
+
+                                                        database.getReference().child("chats")
+                                                                .child(senderId).child(datasnapshot.getKey())
+                                                                .child(dataSnapshot2.getKey())
+                                                                .child("isNotified").setValue("yes");
+
+                                                    }
                                                 }
-
-                                                if (message.getMessageType().equals("img")) {
-                                                    decryptedmessagenotification = "sent an image";
-                                                }
-
-                                                NotificationHelper.notificationDialog(InboxActivity.this, decryptedmessagenotification, messageSenderName);
-
-                                                database.getReference().child("chats")
-                                                        .child(senderId).child(datasnapshot.getKey())
-                                                        .child(dataSnapshot2.getKey())
-                                                        .child("isNotified").setValue("yes");
-
                                             }
-                                        }
-                                    }
-                                });
+                                        });
 
                             }
                         }
@@ -291,7 +293,78 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             @Override
             public void onClick(View view) {
                 String message = inputMessage.getText().toString();
-                sendMessage(message);
+                if (!message.isEmpty()) {
+
+                    try {
+                        encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", message);
+
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    MessageModel model;
+                    model = new MessageModel(senderId, encryptedMessage);
+                    model.setTimestamp(new Date().getTime());
+                    inputMessage.setText("");
+
+                    String key = database.getReference().child("chats")
+                            .child(receiverId)
+                            .child(senderId)
+                            .push().getKey();
+
+                    model.setMessageId(key);
+                    model.setIsNotified("no");
+
+                    database.getReference().child("chats")
+                            .child(receiverId)
+                            .child(senderId)
+                            .child(key)
+                            .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
+                                @Override
+                                public void onSuccess(Void unused) {
+                                    model.setMessage(message);
+                                    updateLocalDatabase(model);
+
+                                    localMessageModel.add(model);
+                                    chatAdapter.notifyDataSetChanged();
+                                    chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+
+                                    database.getReference().child("Contacts").child(receiverId)
+                                            .child(senderId).child("last_message")
+                                            .setValue(encryptedMessage);
+
+                                    database.getReference().child("Contacts").child(receiverId)
+                                            .child(senderId).child("last_sender_name")
+                                            .setValue("");
+
+                                    database.getReference().child("Contacts").child(receiverId)
+                                            .child(senderId).child("message_time")
+                                            .setValue(model.getTimestamp());
+
+                                    database.getReference().child("Contacts").child(receiverId)
+                                            .child(senderId).child("last_message_seen")
+                                            .setValue("false");
+
+                                    database.getReference().child("Contacts").child(senderId)
+                                            .child(receiverId).child("last_message")
+                                            .setValue(encryptedMessage);
+
+                                    database.getReference().child("Contacts").child(senderId)
+                                            .child(receiverId).child("last_sender_name")
+                                            .setValue("You");
+
+                                    database.getReference().child("Contacts").child(senderId)
+                                            .child(receiverId).child("message_time")
+                                            .setValue(model.getTimestamp());
+
+                                    database.getReference().child("Contacts").child(senderId)
+                                            .child(receiverId).child("last_message_seen")
+                                            .setValue("true");
+                                }
+                            });
+
+                }
+
             }
         });
 
@@ -299,9 +372,9 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             @Override
             public void onClick(View view) {
                 CharSequence options[] = new CharSequence[]{
-                    "Images",
-                    "PDF Files",
-                    "MS Word Files"
+                        "Images",
+                        "PDF Files",
+                        "MS Word Files"
                 };
 
                 AlertDialog.Builder builder = new AlertDialog.Builder(InboxActivity.this);
@@ -404,10 +477,10 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                     for (MessageModel message : selectedMessages) {
                         android.util.Log.d("SelectedMessages",
                                 "Message ID: " + message.getMessageId()
-                                + ", Content: " + message.getMessage()
-                                + ", Type: " + message.getMessageType()
-                                + ", Sender: " + message.getUid()
-                                + ", Timestamp: " + message.getTimestamp()
+                                        + ", Content: " + message.getMessage()
+                                        + ", Type: " + message.getMessageType()
+                                        + ", Sender: " + message.getUid()
+                                        + ", Timestamp: " + message.getTimestamp()
                         );
                     }
 
@@ -527,22 +600,31 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
         GoogleSignInAccount mAccount = GoogleSignIn.getLastSignedInAccount(this);
 
+        if(mAccount == null){
+            Toast.makeText(this, "No Valid Google account signed in. Cannot upload image.", Toast.LENGTH_LONG).show();
+            return;
+        }
         GoogleAccountCredential credential
                 = GoogleAccountCredential.usingOAuth2(
-                        getApplicationContext(), Collections.singleton(Scopes.DRIVE_FILE));
+                getApplicationContext(), Collections.singleton(Scopes.DRIVE_FILE));
         credential.setSelectedAccount(mAccount.getAccount());
         android.util.Log.d("Inbox ", "driveSetUp: " + mAccount.getEmail());
         Drive googleDriveService
                 = new com.google.api.services.drive.Drive.Builder(
-                        AndroidHttp.newCompatibleTransport(),
-                        new GsonFactory(),
-                        credential)
-                        .setApplicationName("GoogleDriveIntegration 3")
-                        .build();
+                AndroidHttp.newCompatibleTransport(),
+                new GsonFactory(),
+                credential)
+                .setApplicationName("GoogleDriveIntegration 3")
+                .build();
         driveServiceHelper = new DriveServiceHelper(googleDriveService, this.getApplicationContext());
     }
 
     private void checkForGooglePermissions() {
+        GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(getApplicationContext());
+        if (account == null) {
+            Toast.makeText(this, "No Google account signed in. Please sign in with a valid Google account to upload files.", Toast.LENGTH_LONG).show();
+            return;
+        }
 
         if (!GoogleSignIn.hasPermissions(
                 GoogleSignIn.getLastSignedInAccount(getApplicationContext()),
@@ -560,6 +642,11 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     }
 
     private void uploadImage() {
+        GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(getApplicationContext());
+        if (account == null) {
+            Toast.makeText(this, "No Google account signed in. Cannot upload image.", Toast.LENGTH_LONG).show();
+            return;
+        }
         ProgressDialog progressDialog = new ProgressDialog(this);
         progressDialog.setTitle("Uploading....");
         progressDialog.show();
@@ -604,50 +691,50 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                                 .child(senderId)
                                 .child(key)
                                 .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
-                            @Override
-                            public void onSuccess(Void unused) {
-                                model.setMessage(downloadUrl);  // Store the actual URL in the message
-                                updateLocalDatabase(model);
-                                localMessageModel.add(model);
-                                chatAdapter.notifyDataSetChanged();
-                                chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+                                    @Override
+                                    public void onSuccess(Void unused) {
+                                        model.setMessage(downloadUrl);  // Store the actual URL in the message
+                                        updateLocalDatabase(model);
+                                        localMessageModel.add(model);
+                                        chatAdapter.notifyDataSetChanged();
+                                        chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
 
-                                // Update last message and metadata in contacts
-                                database.getReference().child("Contacts").child(receiverId)
-                                        .child(senderId).child("last_message")
-                                        .setValue("sent an image");
+                                        // Update last message and metadata in contacts
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("last_message")
+                                                .setValue("sent an image");
 
-                                database.getReference().child("Contacts").child(receiverId)
-                                        .child(senderId).child("last_sender_name")
-                                        .setValue("");
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("last_sender_name")
+                                                .setValue("");
 
-                                database.getReference().child("Contacts").child(receiverId)
-                                        .child(senderId).child("message_time")
-                                        .setValue(model.getTimestamp());
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("message_time")
+                                                .setValue(model.getTimestamp());
 
-                                database.getReference().child("Contacts").child(receiverId)
-                                        .child(senderId).child("last_message_seen")
-                                        .setValue("false");
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("last_message_seen")
+                                                .setValue("false");
 
-                                database.getReference().child("Contacts").child(senderId)
-                                        .child(receiverId).child("last_message")
-                                        .setValue("sent an image");
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("last_message")
+                                                .setValue("sent an image");
 
-                                database.getReference().child("Contacts").child(senderId)
-                                        .child(receiverId).child("last_sender_name")
-                                        .setValue("You");
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("last_sender_name")
+                                                .setValue("You");
 
-                                database.getReference().child("Contacts").child(senderId)
-                                        .child(receiverId).child("message_time")
-                                        .setValue(model.getTimestamp());
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("message_time")
+                                                .setValue(model.getTimestamp());
 
-                                database.getReference().child("Contacts").child(senderId)
-                                        .child(receiverId).child("last_message_seen")
-                                        .setValue("true");
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("last_message_seen")
+                                                .setValue("true");
 
-                                progressDialog.dismiss();
-                            }
-                        });
+                                        progressDialog.dismiss();
+                                    }
+                                });
                     } else {
                         // Handle failure
                         progressDialog.dismiss();
@@ -715,50 +802,50 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                                 .child(senderId)
                                 .child(key)
                                 .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
-                            @Override
-                            public void onSuccess(Void unused) {
-                                model.setMessage(fileUrl); // Store the actual URL in the message
-                                updateLocalDatabase(model);
-                                localMessageModel.add(model);
-                                chatAdapter.notifyDataSetChanged();
-                                chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+                                    @Override
+                                    public void onSuccess(Void unused) {
+                                        model.setMessage(fileUrl); // Store the actual URL in the message
+                                        updateLocalDatabase(model);
+                                        localMessageModel.add(model);
+                                        chatAdapter.notifyDataSetChanged();
+                                        chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
 
-                                // Update the contacts with the last message and timestamp
-                                database.getReference().child("Contacts").child(receiverId)
-                                        .child(senderId).child("last_message")
-                                        .setValue("sent a file");
+                                        // Update the contacts with the last message and timestamp
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("last_message")
+                                                .setValue("sent a file");
 
-                                database.getReference().child("Contacts").child(receiverId)
-                                        .child(senderId).child("last_sender_name")
-                                        .setValue("");
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("last_sender_name")
+                                                .setValue("");
 
-                                database.getReference().child("Contacts").child(receiverId)
-                                        .child(senderId).child("message_time")
-                                        .setValue(model.getTimestamp());
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("message_time")
+                                                .setValue(model.getTimestamp());
 
-                                database.getReference().child("Contacts").child(receiverId)
-                                        .child(senderId).child("last_message_seen")
-                                        .setValue("false");
+                                        database.getReference().child("Contacts").child(receiverId)
+                                                .child(senderId).child("last_message_seen")
+                                                .setValue("false");
 
-                                // Repeat similar updates for the sender
-                                database.getReference().child("Contacts").child(senderId)
-                                        .child(receiverId).child("last_message")
-                                        .setValue("sent a file");
+                                        // Repeat similar updates for the sender
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("last_message")
+                                                .setValue("sent a file");
 
-                                database.getReference().child("Contacts").child(senderId)
-                                        .child(receiverId).child("last_sender_name")
-                                        .setValue("You");
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("last_sender_name")
+                                                .setValue("You");
 
-                                database.getReference().child("Contacts").child(senderId)
-                                        .child(receiverId).child("message_time")
-                                        .setValue(model.getTimestamp());
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("message_time")
+                                                .setValue(model.getTimestamp());
 
-                                database.getReference().child("Contacts").child(senderId)
-                                        .child(receiverId).child("last_message_seen")
-                                        .setValue("true");
-                                progressDialog.dismiss();
-                            }
-                        });
+                                        database.getReference().child("Contacts").child(senderId)
+                                                .child(receiverId).child("last_message_seen")
+                                                .setValue("true");
+                                        progressDialog.dismiss();
+                                    }
+                                });
                     } else {
                         // Handle failure to upload
                         progressDialog.dismiss();
@@ -1142,68 +1229,5 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                 .child(receiverId)
                 .child(senderId)
                 .child("last_message_time").setValue(0);
-    }
-
-    private void sendMessage(String message) {
-        if (message.isEmpty()) {
-            return;
-        }
-
-        String messageId = database.getReference().child("Messages").push().getKey();
-        if (messageId == null) {
-            return;
-        }
-
-        Map<String, Object> messageData = new HashMap<>();
-        messageData.put("messageId", messageId);
-        messageData.put("senderId", mAuth.getCurrentUser().getUid());
-        messageData.put("message", message);
-        messageData.put("timestamp", System.currentTimeMillis());
-        messageData.put("isGroupMessage", isGroupChat);
-
-        if (isGroupChat) {
-            // For group chat, store message under group's messages
-            database.getReference().child("GroupMessages").child(groupId).child(messageId)
-                    .setValue(messageData)
-                    .addOnSuccessListener(aVoid -> {
-                        // Update last message for all group members
-                        Map<String, Object> lastMessageData = new HashMap<>();
-                        lastMessageData.put("lastMessage", message);
-                        lastMessageData.put("timestamp", System.currentTimeMillis());
-                        lastMessageData.put("lastSenderId", mAuth.getCurrentUser().getUid());
-
-                        database.getReference().child("Groups").child(groupId).child("members")
-                                .get()
-                                .addOnSuccessListener(dataSnapshot -> {
-                                    if (dataSnapshot.exists()) {
-                                        for (DataSnapshot memberSnapshot : dataSnapshot.getChildren()) {
-                                            String memberId = memberSnapshot.getValue(String.class);
-                                            if (memberId != null) {
-                                                database.getReference().child("Chats").child(memberId)
-                                                        .child(groupId).updateChildren(lastMessageData);
-                                            }
-                                        }
-                                    }
-                                });
-                    });
-        } else {
-            // For individual chat
-            database.getReference().child("Messages").child(senderRoom).child(messageId)
-                    .setValue(messageData)
-                    .addOnSuccessListener(aVoid -> {
-                        // Update last message
-                        Map<String, Object> lastMessageData = new HashMap<>();
-                        lastMessageData.put("lastMessage", message);
-                        lastMessageData.put("timestamp", System.currentTimeMillis());
-                        lastMessageData.put("lastSenderId", mAuth.getCurrentUser().getUid());
-
-                        database.getReference().child("Chats").child(mAuth.getCurrentUser().getUid())
-                                .child(senderRoom).updateChildren(lastMessageData);
-                        database.getReference().child("Chats").child(senderRoom)
-                                .child(mAuth.getCurrentUser().getUid()).updateChildren(lastMessageData);
-                    });
-        }
-
-        inputMessage.setText("");
     }
 }
