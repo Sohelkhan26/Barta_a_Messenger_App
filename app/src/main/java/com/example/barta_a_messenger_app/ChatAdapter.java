@@ -5,6 +5,7 @@ import static com.google.common.io.Files.getFileExtension;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -94,12 +95,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (holder.getClass() == SenderViewHolder.class) {
                 ((SenderViewHolder) holder).sentImage.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
+                ((SenderViewHolder) holder).sentVoice.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).senderMsg.setVisibility(View.VISIBLE);
                 ((SenderViewHolder) holder).senderMsg.setText(messageModel.getMessage());
                 ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
             } else {
                 ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.GONE);
+                ((ReceiverViewHolder) holder).receivedVoice.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.VISIBLE);
                 ((ReceiverViewHolder) holder).receiverMsg.setText(messageModel.getMessage());
                 ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
@@ -109,14 +112,42 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (holder.getClass() == SenderViewHolder.class) {
                 ((SenderViewHolder) holder).senderMsg.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
+                ((SenderViewHolder) holder).sentVoice.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).sentImage.setVisibility(View.VISIBLE);
                 Picasso.get().load(messageModel.getMessage()).into(((SenderViewHolder) holder).sentImage);
                 ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
             } else {
                 ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.GONE);
+                ((ReceiverViewHolder) holder).receivedVoice.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.VISIBLE);
                 Picasso.get().load(messageModel.getMessage()).into(((ReceiverViewHolder) holder).receivedImage);
+                ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+            }
+        } else if (messageModel.getMessageType().equals("voice")) {
+            if (holder.getClass() == SenderViewHolder.class) {
+                ((SenderViewHolder) holder).senderMsg.setVisibility(View.GONE);
+                ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
+                ((SenderViewHolder) holder).sentImage.setVisibility(View.GONE);
+                ((SenderViewHolder) holder).sentVoice.setVisibility(View.VISIBLE);
+                ((SenderViewHolder) holder).sentVoice.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        playVoiceMessage(messageModel.getMessage());
+                    }
+                });
+                ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+            } else {
+                ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.GONE);
+                ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.GONE);
+                ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.GONE);
+                ((ReceiverViewHolder) holder).receivedVoice.setVisibility(View.VISIBLE);
+                ((ReceiverViewHolder) holder).receivedVoice.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        playVoiceMessage(messageModel.getMessage());
+                    }
+                });
                 ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
             }
         } else {
@@ -124,6 +155,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 ((SenderViewHolder) holder).sentFile.setVisibility(View.VISIBLE);
                 ((SenderViewHolder) holder).senderMsg.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).sentImage.setVisibility(View.GONE);
+                ((SenderViewHolder) holder).sentVoice.setVisibility(View.GONE);
                 if (messageModel.getMessageType().equals("pdf")) {
                     ((SenderViewHolder) holder).sentFile.setImageResource(R.drawable.pdf_icon);
                 } else {
@@ -134,6 +166,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.VISIBLE);
                 ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.GONE);
+                ((ReceiverViewHolder) holder).receivedVoice.setVisibility(View.GONE);
                 if (messageModel.getMessageType().equals("pdf")) {
                     ((ReceiverViewHolder) holder).receivedFile.setImageResource(R.drawable.pdf_icon);
                 } else {
@@ -207,6 +240,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         ImageView receivedImage;
         ImageButton receivedFile;
+        ImageButton receivedVoice;
 
         public ReceiverViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -215,6 +249,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             receiverTime = itemView.findViewById(R.id.receiverTime);
             receivedImage = itemView.findViewById(R.id.received_image);
             receivedFile = itemView.findViewById(R.id.received_file);
+            receivedVoice = itemView.findViewById(R.id.received_voice);
             receivedImage.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
@@ -264,6 +299,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         TextView senderMsg, senderTime;
         ImageView sentImage;
         ImageButton sentFile;
+        ImageButton sentVoice;
 
         public SenderViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -272,6 +308,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             senderTime = itemView.findViewById(R.id.senderTime);
             sentImage = itemView.findViewById(R.id.sent_image);
             sentFile = itemView.findViewById(R.id.sent_file);
+            sentVoice = itemView.findViewById(R.id.sent_voice);
 
             sentFile.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -310,5 +347,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public void setOnMessageSelectListener(OnMessageSelectListener listener) {
         messageSelectListener = listener;
+    }
+
+    private void playVoiceMessage(String voiceMessageUrl) {
+        MediaPlayer mediaPlayer = new MediaPlayer();
+        try {
+            mediaPlayer.setDataSource(voiceMessageUrl);
+            mediaPlayer.prepare();
+            mediaPlayer.start();
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(context, "Failed to play voice message", Toast.LENGTH_SHORT).show();
+        }
     }
 }

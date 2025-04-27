@@ -119,6 +119,9 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     private LinearLayout actionButtonsLayout;
     private Button deleteButton;
 
+    private ImageButton recordButton;
+    private VoiceRecorder voiceRecorder;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -517,6 +520,23 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                         android.util.Log.e("ContactDebug", "Error: " + error.getMessage());
                     }
                 });
+
+        recordButton = findViewById(R.id.record_button);
+        voiceRecorder = new VoiceRecorder();
+
+        recordButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (voiceRecorder.isRecording()) {
+                    voiceRecorder.stopRecording();
+                    recordButton.setImageResource(R.drawable.ic_mic); // Change to mic icon
+                    uploadVoiceMessage();
+                } else {
+                    voiceRecorder.startRecording();
+                    recordButton.setImageResource(R.drawable.ic_stop); // Change to stop icon
+                }
+            }
+        });
     }
 
     @Override
@@ -1229,5 +1249,107 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                 .child(receiverId)
                 .child(senderId)
                 .child("last_message_time").setValue(0);
+    }
+
+    private void uploadVoiceMessage() {
+        checkForGooglePermissions();
+        if (driveServiceHelper == null) {
+            Toast.makeText(this, "Drive Service Helper is null", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        ProgressDialog progressDialog = new ProgressDialog(this);
+        progressDialog.setTitle("Uploading Voice Message...");
+        progressDialog.show();
+
+        Uri voiceMessageUri = Uri.parse(voiceRecorder.getOutputFilePath());
+
+        try {
+            Task<File> uploadTask = driveServiceHelper.uploadFile(voiceMessageUri, UUID.randomUUID().toString());
+
+            uploadTask.addOnCompleteListener(new OnCompleteListener<File>() {
+                @Override
+                public void onComplete(@NonNull Task<File> task) {
+                    if (task.isSuccessful()) {
+                        File uploadedFile = task.getResult();
+                        String fileId = uploadedFile.getId();
+                        String downloadUrl = "https://drive.google.com/uc?id=" + fileId;
+
+                        try {
+                            encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", downloadUrl);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        MessageModel model = new MessageModel(senderId, encryptedMessage, "voice");
+                        model.setTimestamp(new Date().getTime());
+
+                        String key = database.getReference().child("chats")
+                                .child(receiverId)
+                                .child(senderId)
+                                .push().getKey();
+
+                        model.setMessageId(key);
+                        model.setIsNotified("no");
+
+                        database.getReference().child("chats")
+                                .child(receiverId)
+                                .child(senderId)
+                                .child(key)
+                                .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
+                            @Override
+                            public void onSuccess(Void unused) {
+                                model.setMessage(downloadUrl);
+                                updateLocalDatabase(model);
+                                localMessageModel.add(model);
+                                chatAdapter.notifyDataSetChanged();
+                                chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("last_message")
+                                        .setValue("sent a voice message");
+
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("last_sender_name")
+                                        .setValue("");
+
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("message_time")
+                                        .setValue(model.getTimestamp());
+
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("last_message_seen")
+                                        .setValue("false");
+
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("last_message")
+                                        .setValue("sent a voice message");
+
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("last_sender_name")
+                                        .setValue("You");
+
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("message_time")
+                                        .setValue(model.getTimestamp());
+
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("last_message_seen")
+                                        .setValue("true");
+
+                                progressDialog.dismiss();
+                            }
+                        });
+                    } else {
+                        progressDialog.dismiss();
+                        Toast.makeText(getApplicationContext(), "Failed to upload voice message: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        } catch (Exception e) {
+            progressDialog.dismiss();
+            e.printStackTrace();
+            Toast.makeText(getApplicationContext(), "Error during upload: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 }
