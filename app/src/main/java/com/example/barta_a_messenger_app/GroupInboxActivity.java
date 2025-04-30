@@ -9,6 +9,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.Button;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -27,6 +28,9 @@ import java.util.List;
 
 import androidx.appcompat.widget.AppCompatImageView;
 import de.hdodenhof.circleimageview.CircleImageView;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.core.view.GravityCompat;
 
 public class GroupInboxActivity extends AppCompatActivity {
 
@@ -39,6 +43,11 @@ public class GroupInboxActivity extends AppCompatActivity {
     private AppCompatImageView backButton;
     private AppCompatImageView infoButton;
     private CircleImageView groupImageView;
+    private CircleImageView drawerGroupImage;
+    private TextView drawerGroupName;
+    private RecyclerView membersRecyclerView;
+    private Button addMemberButton;
+    private Button leaveGroupButton;
 
     private FirebaseAuth mAuth;
     private FirebaseDatabase database;
@@ -48,6 +57,11 @@ public class GroupInboxActivity extends AppCompatActivity {
     private String currentUserId;
     private ArrayList<MessageModel> messageList;
     private ChatAdapter chatAdapter;
+    private ArrayList<String> memberList;
+    private MemberAdapter memberAdapter;
+
+    private DrawerLayout drawerLayout;
+    private ActionBarDrawerToggle drawerToggle;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,11 +92,37 @@ public class GroupInboxActivity extends AppCompatActivity {
         sendButton = findViewById(R.id.send);
         imageSendButton = findViewById(R.id.image_send_button);
         backButton = findViewById(R.id.imageBack);
-        infoButton = findViewById(R.id.imageInfo);
+        infoButton = findViewById(R.id.inboxInfo);
         groupImageView = findViewById(R.id.groupImageView);
+
+        // Initialize drawer layout
+        drawerLayout = findViewById(R.id.drawer_layout);
+        drawerToggle = new ActionBarDrawerToggle(
+                this, drawerLayout, R.string.drawer_open, R.string.drawer_close);
+        drawerLayout.addDrawerListener(drawerToggle);
+        drawerToggle.syncState();
+
+        // Set click listener for info button
+        infoButton.setOnClickListener(v -> {
+            if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
+                drawerLayout.closeDrawer(GravityCompat.END);
+            } else {
+                drawerLayout.openDrawer(GravityCompat.END);
+            }
+        });
 
         // Set group name
         groupNameTextView.setText(groupName);
+
+        // Initialize drawer views
+        drawerGroupImage = findViewById(R.id.drawerGroupImage);
+        drawerGroupName = findViewById(R.id.drawerGroupName);
+        membersRecyclerView = findViewById(R.id.membersRecyclerView);
+        addMemberButton = findViewById(R.id.addMemberButton);
+        leaveGroupButton = findViewById(R.id.leaveGroupButton);
+
+        // Set group name in drawer
+        drawerGroupName.setText(groupName);
 
         // Setup RecyclerView
         messageList = new ArrayList<>();
@@ -90,8 +130,17 @@ public class GroupInboxActivity extends AppCompatActivity {
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
 
+        // Setup members RecyclerView
+        memberList = new ArrayList<>();
+        memberAdapter = new MemberAdapter(memberList);
+        membersRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        membersRecyclerView.setAdapter(memberAdapter);
+
         // Load messages
         loadMessages();
+
+        // Load group members
+        loadGroupMembers();
 
         // Send message button click
         sendButton.setOnClickListener(v -> {
@@ -101,6 +150,16 @@ public class GroupInboxActivity extends AppCompatActivity {
         // Image send button click (you can implement this later)
         imageSendButton.setOnClickListener(v -> {
             // Implement image sending functionality
+        });
+
+        // Add Member button click listener
+        addMemberButton.setOnClickListener(v -> {
+            // TODO: Implement add member functionality
+        });
+
+        // Leave Group button click listener
+        leaveGroupButton.setOnClickListener(v -> {
+            // TODO: Implement leave group functionality
         });
     }
 
@@ -173,6 +232,43 @@ public class GroupInboxActivity extends AppCompatActivity {
         }
     }
 
+    private void loadGroupMembers() {
+        database.getReference().child("Groups").child(groupId).child("members")
+                .addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        memberList.clear();
+                        for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
+                            String memberId = dataSnapshot.getKey();
+                            if (memberId != null) {
+                                // Get member name from users node
+                                database.getReference().child("user").child(memberId)
+                                        .addListenerForSingleValueEvent(new ValueEventListener() {
+                                            @Override
+                                            public void onDataChange(@NonNull DataSnapshot userSnapshot) {
+                                                if (userSnapshot.exists()) {
+                                                    String memberName = userSnapshot.child("username").getValue(String.class);
+                                                    memberList.add(memberName);
+                                                    memberAdapter.notifyDataSetChanged();
+                                                }
+                                            }
+
+                                            @Override
+                                            public void onCancelled(@NonNull DatabaseError error) {
+                                                Log.e(TAG, "Error getting member name: " + error.getMessage());
+                                            }
+                                        });
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Log.e(TAG, "Error loading group members: " + error.getMessage());
+                    }
+                });
+    }
+
     private class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHolder> {
 
         private List<MessageModel> messages;
@@ -192,7 +288,7 @@ public class GroupInboxActivity extends AppCompatActivity {
         public void onBindViewHolder(@NonNull MessageViewHolder holder, int position) {
             MessageModel message = messages.get(position);
             holder.messageText.setText(message.getMessage());
-            
+
             // Set sender's name
             if (message.getSenderId() != null) {
                 DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(message.getSenderId());
@@ -228,6 +324,44 @@ public class GroupInboxActivity extends AppCompatActivity {
                 super(itemView);
                 messageText = itemView.findViewById(R.id.message_text);
                 senderName = itemView.findViewById(R.id.sender_name);
+            }
+        }
+    }
+
+    private class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberViewHolder> {
+
+        private List<String> members;
+
+        public MemberAdapter(List<String> members) {
+            this.members = members;
+        }
+
+        @NonNull
+        @Override
+        public MemberViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_member, parent, false);
+            return new MemberViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull MemberViewHolder holder, int position) {
+            String memberName = members.get(position);
+            holder.memberName.setText(memberName);
+        }
+
+        @Override
+        public int getItemCount() {
+            return members.size();
+        }
+
+        class MemberViewHolder extends RecyclerView.ViewHolder {
+
+            TextView memberName;
+
+            MemberViewHolder(View itemView) {
+                super(itemView);
+                memberName = itemView.findViewById(R.id.member_name);
             }
         }
     }
