@@ -25,6 +25,7 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ContactV
 
     // Add interface for click listener
     public interface OnItemClickListener {
+
         void onItemClick(Contact contact);
     }
 
@@ -32,6 +33,7 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ContactV
     private Context context;
     private boolean isSelectionMode;
     private GroupCreationActivity groupCreationActivity;
+    private GroupInboxActivity groupInboxActivity;
     private OnItemClickListener listener;
 
     public ContactAdapter(ArrayList<Contact> contacts, Context context, boolean isSelectionMode) {
@@ -40,6 +42,8 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ContactV
         this.isSelectionMode = isSelectionMode;
         if (context instanceof GroupCreationActivity) {
             this.groupCreationActivity = (GroupCreationActivity) context;
+        } else if (context instanceof GroupInboxActivity) {
+            this.groupInboxActivity = (GroupInboxActivity) context;
         }
     }
 
@@ -65,9 +69,17 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ContactV
             holder.checkBox.setVisibility(View.VISIBLE);
             holder.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 if (isChecked) {
-                    groupCreationActivity.onContactSelected(contact);
+                    if (groupCreationActivity != null) {
+                        groupCreationActivity.onContactSelected(contact);
+                    } else if (groupInboxActivity != null) {
+                        groupInboxActivity.onContactSelected(contact);
+                    }
                 } else {
-                    groupCreationActivity.onContactDeselected(contact);
+                    if (groupCreationActivity != null) {
+                        groupCreationActivity.onContactDeselected(contact);
+                    } else if (groupInboxActivity != null) {
+                        groupInboxActivity.onContactDeselected(contact);
+                    }
                 }
             });
         } else {
@@ -102,6 +114,7 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ContactV
     }
 
     static class ContactViewHolder extends RecyclerView.ViewHolder {
+
         TextView nameTextView;
         TextView phoneTextView;
         CheckBox checkBox;

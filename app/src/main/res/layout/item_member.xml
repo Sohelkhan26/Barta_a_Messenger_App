@@ -3,21 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="8dp">
-
-    <de.hdodenhof.circleimageview.CircleImageView
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:src="@drawable/user_icon"
-        android:background="@color/blue"/>
+    android:padding="16dp"
+    android:background="#B5A0E4"
+    android:gravity="center_vertical">
 
     <TextView
         android:id="@+id/member_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_gravity="center_vertical"
-        android:textColor="@android:color/black"
-        android:textSize="16sp"/>
+        android:textSize="18sp"
+        android:textColor="@android:color/black"/>
 
 </LinearLayout> 
