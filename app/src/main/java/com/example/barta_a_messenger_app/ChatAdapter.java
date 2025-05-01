@@ -2,6 +2,7 @@ package com.example.barta_a_messenger_app;
 
 import static com.google.common.io.Files.getFileExtension;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
@@ -87,7 +88,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     @Override
-    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, @SuppressLint("RecyclerView") final int position) {
         MessageModel messageModel = messageModels.get(position);
 
         if (messageModel.getMessageType() == null || messageModel.getMessageType().equals("msg")) {
@@ -259,7 +260,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 @Override
                 public void onClick(View view) {
                     Context c = view.getContext();
-                    int position = getAdapterPosition();
+                    int position = getBindingAdapterPosition();
                     MessageModel messageModel = messageModels.get(position);
                     openItem(c, messageModel);
                 }
@@ -268,7 +269,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 @Override
                 public void onClick(View view) {
                     Context c = view.getContext();
-                    int position = getAdapterPosition();
+                    int position = getBindingAdapterPosition();
                     MessageModel messageModel = messageModels.get(position);
                     openItem(c, messageModel);
                 }
@@ -317,9 +318,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 @Override
                 public void onClick(View view) {
                     Context c = view.getContext();
-                    int position = getAdapterPosition();
+                    int position = getBindingAdapterPosition();
                     MessageModel messageModel = messageModels.get(position);
-
                     openItem(c, messageModel);
                 }
             });
@@ -327,7 +327,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 @Override
                 public void onClick(View view) {
                     Context c = view.getContext();
-                    int position = getAdapterPosition();
+                    int position = getBindingAdapterPosition();
                     MessageModel messageModel = messageModels.get(position);
                     openItem(c, messageModel);
                 }

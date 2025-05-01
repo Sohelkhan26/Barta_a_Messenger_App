@@ -1,6 +1,7 @@
 package com.example.barta_a_messenger_app;
 
 import android.app.Dialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -11,6 +12,7 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.Button;
+import android.app.AlertDialog;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -67,6 +69,8 @@ public class GroupInboxActivity extends AppCompatActivity {
     private Button addMemberButton;
     private ContactAdapter contactAdapter;
     private ArrayList<Contact> selectedContacts = new ArrayList<>();
+
+    private Button leaveGroupButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -125,6 +129,13 @@ public class GroupInboxActivity extends AppCompatActivity {
             }
         });
 
+        backButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                onBackPressed();
+            }
+        });
+
         // Set members button click listener
         membersButton.setOnClickListener(v -> {
             isMembersExpanded = !isMembersExpanded;
@@ -175,6 +186,10 @@ public class GroupInboxActivity extends AppCompatActivity {
         addMemberButton.setOnClickListener(v -> {
             showContactsDialog();
         });
+
+        // Initialize Leave Group button
+        leaveGroupButton = findViewById(R.id.leaveGroupButton);
+        leaveGroupButton.setOnClickListener(v -> showLeaveGroupDialog());
     }
 
     private void loadMessages() {
@@ -386,7 +401,7 @@ public class GroupInboxActivity extends AppCompatActivity {
                                 }
                             }
                         }
-                        
+
                         if (contacts.isEmpty()) {
                             // No contacts to add
                             noContactsText.setVisibility(View.VISIBLE);
@@ -496,5 +511,48 @@ public class GroupInboxActivity extends AppCompatActivity {
 
     public void onContactDeselected(Contact contact) {
         selectedContacts.remove(contact);
+    }
+
+    private void showLeaveGroupDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Leave Group")
+                .setMessage("Are you sure you want to leave this group? Your chat history will be deleted.")
+                .setPositiveButton("Leave", (dialog, which) -> leaveGroup())
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void leaveGroup() {
+        // Remove user from group members
+        DatabaseReference groupRef = database.getReference().child("Groups").child(groupId);
+        groupRef.child("members").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                ArrayList<String> members = snapshot.getValue(new GenericTypeIndicator<ArrayList<String>>() {
+                });
+                if (members != null) {
+                    members.remove(currentUserId);
+                    groupRef.child("members").setValue(members);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(GroupInboxActivity.this, "Failed to leave group", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Delete group from user's chats
+        database.getReference().child("Chats")
+                .child(currentUserId)
+                .child(groupId)
+                .removeValue()
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(GroupInboxActivity.this, "Left group successfully", Toast.LENGTH_SHORT).show();
+                    finish();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(GroupInboxActivity.this, "Failed to leave group", Toast.LENGTH_SHORT).show();
+                });
     }
 }
