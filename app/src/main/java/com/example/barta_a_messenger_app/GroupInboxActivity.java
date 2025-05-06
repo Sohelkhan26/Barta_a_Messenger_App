@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.Button;
@@ -28,6 +29,7 @@ import com.google.firebase.database.GenericTypeIndicator;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -38,7 +40,7 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.core.view.GravityCompat;
 
-public class GroupInboxActivity extends AppCompatActivity {
+public class GroupInboxActivity extends AppCompatActivity implements ChatAdapter.OnMessageSelectListener {
 
     private static final String TAG = "GroupInboxActivity";
     private TextView groupNameTextView;
@@ -71,6 +73,11 @@ public class GroupInboxActivity extends AppCompatActivity {
     private ArrayList<Contact> selectedContacts = new ArrayList<>();
 
     private Button leaveGroupButton;
+
+    private ArrayList<MessageModel> selectedMessages;
+    private LinearLayout actionButtonsLayout;
+    private Button forwardButton;
+    private Button deleteButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -155,6 +162,7 @@ public class GroupInboxActivity extends AppCompatActivity {
         // Setup RecyclerView
         messageList = new ArrayList<>();
         chatAdapter = new ChatAdapter(messageList, this);
+        chatAdapter.setOnMessageSelectListener(this);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
 
@@ -190,6 +198,43 @@ public class GroupInboxActivity extends AppCompatActivity {
         // Initialize Leave Group button
         leaveGroupButton = findViewById(R.id.leaveGroupButton);
         leaveGroupButton.setOnClickListener(v -> showLeaveGroupDialog());
+
+        // Initialize action buttons
+        actionButtonsLayout = findViewById(R.id.actionButtonsLayout);
+        forwardButton = findViewById(R.id.forwardButton);
+        deleteButton = findViewById(R.id.deleteButton);
+
+        // Set click listeners for action buttons
+        forwardButton.setOnClickListener(v -> {
+            if (selectedMessages != null && !selectedMessages.isEmpty()) {
+                Log.d(TAG, "Forwarding " + selectedMessages.size() + " messages");
+                for (MessageModel message : selectedMessages) {
+                    Log.d("SelectedMessages",
+                            "Message ID: " + message.getMessageId()
+                            + ", Content: " + message.getMessage()
+                            + ", Type: " + message.getMessageType()
+                            + ", Sender: " + message.getUid()
+                            + ", Timestamp: " + message.getTimestamp()
+                    );
+                }
+                showContactsDialog();
+            } else {
+                Toast.makeText(GroupInboxActivity.this, "No messages selected", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        deleteButton.setOnClickListener(v -> {
+            if (selectedMessages != null && !selectedMessages.isEmpty()) {
+                Log.d(TAG, "Deleting " + selectedMessages.size() + " messages");
+                for (MessageModel message : selectedMessages) {
+                    deleteMessage(message);
+                }
+                actionButtonsLayout.setVisibility(View.GONE);
+                forwardButton.setVisibility(View.GONE);
+                deleteButton.setVisibility(View.GONE);
+                chatAdapter.clearSelection();
+            }
+        });
     }
 
     private void loadMessages() {
@@ -369,148 +414,212 @@ public class GroupInboxActivity extends AppCompatActivity {
     }
 
     private void showContactsDialog() {
-        // Create dialog
-        Dialog dialog = new Dialog(this);
-        dialog.setContentView(R.layout.dialog_add_members);
-        dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        if (currentUserId == null) {
+            Log.e("ContactsDebug", "Current user ID not found!");
+            return;
+        }
 
-        // Initialize views
-        RecyclerView dialogContactsRecyclerView = dialog.findViewById(R.id.contacts_recycler_view);
-        Button addButton = dialog.findViewById(R.id.add_button);
-        Button cancelButton = dialog.findViewById(R.id.cancel_button);
-        TextView noContactsText = dialog.findViewById(R.id.no_contacts_text);
-        View buttonsContainer = dialog.findViewById(R.id.buttons_container);
-
-        // Set up RecyclerView
-        dialogContactsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        contactAdapter = new ContactAdapter(new ArrayList<>(), GroupInboxActivity.this, true);
-        dialogContactsRecyclerView.setAdapter(contactAdapter);
-
-        // Load contacts
-        database.getReference().child("Contacts").child(currentUserId)
+        database.getReference()
+                .child("Contacts")
+                .child(currentUserId)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        ArrayList<Contact> contacts = new ArrayList<>();
-                        for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
-                            Contact contact = dataSnapshot.getValue(Contact.class);
-                            if (contact != null) {
-                                // Check if contact is already in the group
-                                if (!isContactInGroup(contact.getUid())) {
-                                    contacts.add(contact);
-                                }
-                            }
-                        }
+                        ArrayList<String> userNames = new ArrayList<>();
+                        ArrayList<String> userIds = new ArrayList<>();
 
-                        if (contacts.isEmpty()) {
-                            // No contacts to add
-                            noContactsText.setVisibility(View.VISIBLE);
-                            dialogContactsRecyclerView.setVisibility(View.GONE);
-                            buttonsContainer.setVisibility(View.GONE);
-                        } else {
-                            // Show contacts and buttons
-                            noContactsText.setVisibility(View.GONE);
-                            dialogContactsRecyclerView.setVisibility(View.VISIBLE);
-                            buttonsContainer.setVisibility(View.VISIBLE);
-                            contactAdapter.updateContacts(contacts);
+                        for (DataSnapshot contactSnapshot : snapshot.getChildren()) {
+                            String contactId = contactSnapshot.getKey();
+
+                            if (contactId != null) {
+                                database.getReference()
+                                        .child("user")
+                                        .child(contactId)
+                                        .addListenerForSingleValueEvent(new ValueEventListener() {
+                                            @Override
+                                            public void onDataChange(@NonNull DataSnapshot userSnapshot) {
+                                                if (userSnapshot.exists()) {
+                                                    String username = userSnapshot.child("username").getValue(String.class);
+                                                    userNames.add(username);
+                                                    userIds.add(contactId);
+
+                                                    if (userNames.size() == snapshot.getChildrenCount()) {
+                                                        showForwardDialogWithContacts(userNames, userIds);
+                                                    }
+                                                }
+                                            }
+
+                                            @Override
+                                            public void onCancelled(@NonNull DatabaseError error) {
+                                                Log.e("ContactsDebug", "Error: " + error.getMessage());
+                                            }
+                                        });
+                            }
                         }
                     }
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
-                        Toast.makeText(GroupInboxActivity.this, "Failed to load contacts", Toast.LENGTH_SHORT).show();
-                        dialog.dismiss();
+                        Log.e("ContactsDebug", "Error: " + error.getMessage());
                     }
                 });
+    }
 
-        // Set up buttons
-        addButton.setOnClickListener(v -> {
-            addSelectedMembers();
-            dialog.dismiss();
+    private void showForwardDialogWithContacts(ArrayList<String> userNames, ArrayList<String> userIds) {
+        String[] names = userNames.toArray(new String[0]);
+        boolean[] checkedItems = new boolean[names.length];
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Forward Messages");
+
+        builder.setMultiChoiceItems(names, checkedItems, (dialog, which, isChecked) -> {
+            String selectedUsername = names[which];
+            String selectedUID = userIds.get(which);
+
+            if (isChecked) {
+                Log.d("ForwardDebug", "Selected user: " + selectedUsername + " (UID: " + selectedUID + ")");
+            } else {
+                Log.d("ForwardDebug", "Deselected user: " + selectedUsername + " (UID: " + selectedUID + ")");
+            }
         });
 
-        cancelButton.setOnClickListener(v -> dialog.dismiss());
-
-        dialog.show();
-    }
-
-    private boolean isContactInGroup(String contactId) {
-        // Check if the contact is already a member of the group
-        for (String memberId : currentMembers) {
-            if (memberId.equals(contactId)) {
-                return true;
+        builder.setPositiveButton("Send", (dialog, which) -> {
+            for (int i = 0; i < checkedItems.length; i++) {
+                if (checkedItems[i]) {
+                    String recipientUID = userIds.get(i);
+                    forwardMessagesTo(recipientUID);
+                }
             }
-        }
-        return false;
+
+            actionButtonsLayout.setVisibility(View.GONE);
+            forwardButton.setVisibility(View.GONE);
+            deleteButton.setVisibility(View.GONE);
+            chatAdapter.clearSelection();
+        });
+
+        builder.setNegativeButton("Cancel", null);
+        builder.show();
     }
 
-    private void addSelectedMembers() {
-        if (selectedContacts.isEmpty()) {
-            Toast.makeText(this, "Please select contacts to add", Toast.LENGTH_SHORT).show();
+    private void forwardMessagesTo(String recipientUID) {
+        if (recipientUID == null) {
+            Log.e("ForwardDebug", "Recipient UID is null");
             return;
         }
 
-        DatabaseReference groupRef = database.getReference().child("Groups").child(groupId);
+        for (MessageModel message : selectedMessages) {
+            try {
+                Log.d("ForwardDebug", "Forwarding message to UID: " + recipientUID);
 
-        // Get current members first
-        groupRef.child("members").addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                ArrayList<String> currentMembers = new ArrayList<>();
+                String encryptedMsg = CryptoHelper.encrypt("H@rrY_p0tter_106", message.getMessage());
 
-                // Get existing members
-                for (DataSnapshot memberSnapshot : snapshot.getChildren()) {
-                    String memberId = memberSnapshot.getValue(String.class);
-                    if (memberId != null) {
-                        currentMembers.add(memberId);
-                    }
+                String key = database.getReference().child("chats")
+                        .child(recipientUID)
+                        .child(currentUserId)
+                        .push().getKey();
+
+                if (key == null) {
+                    continue;
                 }
 
-                // Add new members
-                for (Contact contact : selectedContacts) {
-                    if (!currentMembers.contains(contact.getUid())) {
-                        currentMembers.add(contact.getUid());
+                MessageModel forwardedMessage = new MessageModel(currentUserId, encryptedMsg);
+                forwardedMessage.setMessageId(key);
+                forwardedMessage.setTimestamp(new Date().getTime());
+                forwardedMessage.setIsNotified("no");
+                forwardedMessage.setMessageType(message.getMessageType());
 
-                        // Add group to new member's chats
-                        Map<String, Object> chatData = new HashMap<>();
-                        chatData.put("groupId", groupId);
-                        chatData.put("groupName", groupNameTextView.getText().toString());
-                        chatData.put("lastMessage", "");
-                        chatData.put("timestamp", System.currentTimeMillis());
+                database.getReference().child("chats")
+                        .child(recipientUID)
+                        .child(currentUserId)
+                        .child(key)
+                        .setValue(forwardedMessage)
+                        .addOnSuccessListener(unused -> {
+                            updateContactInfo(recipientUID, currentUserId, encryptedMsg, "", forwardedMessage.getTimestamp(), "false");
 
-                        database.getReference().child("Chats")
-                                .child(contact.getUid())
-                                .child(groupId)
-                                .setValue(chatData);
-                    }
-                }
-
-                // Update group members
-                groupRef.child("members").setValue(currentMembers)
-                        .addOnSuccessListener(aVoid -> {
-                            Toast.makeText(GroupInboxActivity.this, "Members added successfully", Toast.LENGTH_SHORT).show();
-                            loadGroupMembers(); // Refresh members list
+                            database.getReference().child("chats")
+                                    .child(currentUserId)
+                                    .child(recipientUID)
+                                    .child(key)
+                                    .setValue(forwardedMessage)
+                                    .addOnSuccessListener(v -> {
+                                        updateContactInfo(currentUserId, recipientUID, encryptedMsg, "You", forwardedMessage.getTimestamp(), "true");
+                                    });
                         })
                         .addOnFailureListener(e -> {
-                            Toast.makeText(GroupInboxActivity.this, "Failed to add members", Toast.LENGTH_SHORT).show();
+                            Log.e("ForwardDebug", "Error: " + e.getMessage());
                         });
-            }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(GroupInboxActivity.this, "Failed to add members", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Log.e("ForwardDebug", "Error: " + e.getMessage());
             }
-        });
-    }
-
-    public void onContactSelected(Contact contact) {
-        if (!selectedContacts.contains(contact)) {
-            selectedContacts.add(contact);
         }
     }
 
-    public void onContactDeselected(Contact contact) {
-        selectedContacts.remove(contact);
+    private void updateContactInfo(String recipientUID, String senderId, String lastMessage, String lastSenderName, Long messageTime, String lastMessageSeen) {
+        database.getReference().child("Contacts")
+                .child(recipientUID)
+                .child(senderId)
+                .child("last_message")
+                .setValue(lastMessage);
+
+        database.getReference().child("Contacts")
+                .child(recipientUID)
+                .child(senderId)
+                .child("last_sender_name")
+                .setValue(lastSenderName);
+
+        database.getReference().child("Contacts")
+                .child(recipientUID)
+                .child(senderId)
+                .child("message_time")
+                .setValue(messageTime);
+
+        database.getReference().child("Contacts")
+                .child(recipientUID)
+                .child(senderId)
+                .child("last_message_seen")
+                .setValue(lastMessageSeen);
+
+        database.getReference().child("Contacts")
+                .child(senderId)
+                .child(recipientUID)
+                .child("last_message")
+                .setValue(lastMessage);
+
+        database.getReference().child("Contacts")
+                .child(senderId)
+                .child(recipientUID)
+                .child("last_sender_name")
+                .setValue(lastSenderName);
+
+        database.getReference().child("Contacts")
+                .child(senderId)
+                .child(recipientUID)
+                .child("message_time")
+                .setValue(messageTime);
+
+        database.getReference().child("Contacts")
+                .child(senderId)
+                .child(recipientUID)
+                .child("last_message_seen")
+                .setValue(lastMessageSeen);
+    }
+
+    private void deleteMessage(MessageModel message) {
+        database.getReference()
+                .child("Groups")
+                .child(groupId)
+                .child("messages")
+                .child(message.getMessageId())
+                .removeValue()
+                .addOnSuccessListener(aVoid -> {
+                    messageList.remove(message);
+                    chatAdapter.notifyDataSetChanged();
+                    Toast.makeText(GroupInboxActivity.this, "Message deleted", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(GroupInboxActivity.this, "Failed to delete message", Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void showLeaveGroupDialog() {
@@ -554,5 +663,69 @@ public class GroupInboxActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Toast.makeText(GroupInboxActivity.this, "Failed to leave group", Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    @Override
+    public void onMessageSelectModeActivated() {
+        Log.d(TAG, "Message selection mode activated");
+        if (selectedMessages == null) {
+            selectedMessages = new ArrayList<>();
+        }
+        actionButtonsLayout.setVisibility(View.VISIBLE);
+        forwardButton.setVisibility(View.VISIBLE);
+        deleteButton.setVisibility(View.VISIBLE);
+    }
+
+    @Override
+    public void onMessageSelected(ArrayList<MessageModel> messages) {
+        Log.d(TAG, "Messages selected: " + messages.size());
+        selectedMessages = messages;
+        if (messages.size() > 0) {
+            actionButtonsLayout.setVisibility(View.VISIBLE);
+            forwardButton.setVisibility(View.VISIBLE);
+
+            // Check if all selected messages are from current user
+            boolean allOwnMessages = true;
+            for (MessageModel message : messages) {
+                if (!message.getUid().equals(currentUserId)) {
+                    allOwnMessages = false;
+                    break;
+                }
+            }
+
+            // Only show delete button if all selected messages are from current user
+            deleteButton.setVisibility(allOwnMessages ? View.VISIBLE : View.GONE);
+        } else {
+            Log.d(TAG, "No messages selected, hiding action buttons");
+            actionButtonsLayout.setVisibility(View.GONE);
+            forwardButton.setVisibility(View.GONE);
+            deleteButton.setVisibility(View.GONE);
+            chatAdapter.clearSelection();
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (actionButtonsLayout.getVisibility() == View.VISIBLE) {
+            // Clear selection and hide buttons
+            actionButtonsLayout.setVisibility(View.GONE);
+            forwardButton.setVisibility(View.GONE);
+            deleteButton.setVisibility(View.GONE);
+            chatAdapter.clearSelection();
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    public void onContactSelected(Contact contact) {
+        Log.d(TAG, "Contact selected: " + contact.getFull_name());
+        selectedContacts.add(contact);
+        // You can add additional logic here if needed
+    }
+
+    public void onContactDeselected(Contact contact) {
+        Log.d(TAG, "Contact deselected: " + contact.getFull_name());
+        selectedContacts.remove(contact);
+        // You can add additional logic here if needed
     }
 }

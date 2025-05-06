@@ -186,25 +186,31 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
 
         // Set long click listener on message view
-        holder.itemView.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View v) {
-                isSelectionMode = true;
-                toggleMessageSelection(position, holder);
-                if (messageSelectListener != null) {
-                    messageSelectListener.onMessageSelectModeActivated();
+        holder.itemView.setOnLongClickListener(v -> {
+            Log.d("ChatAdapter", "Message long pressed: " + messageModel.getMessageId());
+            String currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+
+            if (messageSelectListener != null) {
+                messageSelectListener.onMessageSelectModeActivated();
+
+                // If message is from current user, allow selection
+                if (messageModel.getUid().equals(currentUserId)) {
+                    toggleMessageSelection(position, holder);
+                } else {
+                    // For other's messages, only select this message for forwarding
+                    selectedMessages.clear();
+                    selectedMessages.add(messageModel);
+                    holder.itemView.setBackgroundColor(Color.LTGRAY);
+                    messageSelectListener.onMessageSelected(selectedMessages);
                 }
-                return true;
             }
+            return true;
         });
 
         // Set normal click listener
-        holder.itemView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (isSelectionMode) {
-                    toggleMessageSelection(position, holder);
-                }
+        holder.itemView.setOnClickListener(v -> {
+            if (isSelectionMode) {
+                toggleMessageSelection(position, holder);
             }
         });
 
@@ -216,13 +222,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
-    private void toggleMessageSelection(MessageModel message, View view) {
-        if (selectedMessages.contains(message)) {
-            selectedMessages.remove(message);
-            view.setBackgroundColor(Color.TRANSPARENT);
+    private void toggleMessageSelection(int position, RecyclerView.ViewHolder holder) {
+        MessageModel messageModel = messageModels.get(position);
+        if (selectedMessages.contains(messageModel)) {
+            selectedMessages.remove(messageModel);
+            Log.d("ChatAdapter", "Message deselected: " + messageModel.getMessageId());
+            holder.itemView.setBackgroundColor(Color.TRANSPARENT);
         } else {
-            selectedMessages.add(message);
-            view.setBackgroundColor(Color.LTGRAY);
+            selectedMessages.add(messageModel);
+            Log.d("ChatAdapter", "Message selected: " + messageModel.getMessageId());
+            holder.itemView.setBackgroundColor(Color.LTGRAY);
         }
 
         if (messageSelectListener != null) {
@@ -231,11 +240,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
             messageSelectListener.onMessageSelected(selectedMessages);
         }
-    }
-
-    private void toggleMessageSelection(int position, RecyclerView.ViewHolder holder) {
-        MessageModel messageModel = messageModels.get(position);
-        toggleMessageSelection(messageModel, holder.itemView);
+        notifyDataSetChanged();
     }
 
     @Override
