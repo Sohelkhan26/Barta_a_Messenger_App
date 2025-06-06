@@ -39,6 +39,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     int SENDER_VIEW_TYPE = 1;
     int RECEIVER_VIEW_TYPE = 2;
+    int DATE_SEPARATOR_VIEW_TYPE = 3;
 
     private boolean isSelectionMode = false;
     private OnMessageSelectListener messageSelectListener;
@@ -72,116 +73,132 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (viewType == SENDER_VIEW_TYPE) {
             View view = LayoutInflater.from(context).inflate(R.layout.sample_sender, parent, false);
             return new SenderViewHolder(view);
-        } else {
+        } else if (viewType == RECEIVER_VIEW_TYPE) {
             View view = LayoutInflater.from(context).inflate(R.layout.sample_receiver, parent, false);
             return new ReceiverViewHolder(view);
+        } else {
+            View view = LayoutInflater.from(context).inflate(R.layout.item_date_separator, parent, false);
+            return new DateSeparatorViewHolder(view);
         }
     }
 
     @Override
     public int getItemViewType(int position) {
-        if (messageModels.get(position).getUid().equals(FirebaseAuth.getInstance().getUid())) {
+        MessageModel message = messageModels.get(position);
+
+        // Check if this message needs a date separator
+        if (position == 0 || !isSameDay(messageModels.get(position - 1).getTimestamp(), message.getTimestamp())) {
+            if (message.getUid().equals(FirebaseAuth.getInstance().getUid())) {
+                return SENDER_VIEW_TYPE;
+            } else {
+                return RECEIVER_VIEW_TYPE;
+            }
+        }
+
+        if (message.getUid().equals(FirebaseAuth.getInstance().getUid())) {
             return SENDER_VIEW_TYPE;
         } else {
             return RECEIVER_VIEW_TYPE;
         }
     }
 
+    private boolean isSameDay(long timestamp1, long timestamp2) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+        return sdf.format(new Date(timestamp1)).equals(sdf.format(new Date(timestamp2)));
+    }
+
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, @SuppressLint("RecyclerView") final int position) {
         MessageModel messageModel = messageModels.get(position);
 
-        if (messageModel.getMessageType() == null || messageModel.getMessageType().equals("msg")) {
-            if (holder.getClass() == SenderViewHolder.class) {
-                ((SenderViewHolder) holder).sentImage.setVisibility(View.GONE);
-                ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
-                ((SenderViewHolder) holder).senderMsg.setVisibility(View.VISIBLE);
-                ((SenderViewHolder) holder).senderMsg.setText(messageModel.getMessage());
-                ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+        // Check if we need to show date separator
+        boolean showDateSeparator = position == 0 || !isSameDay(messageModels.get(position - 1).getTimestamp(), messageModel.getTimestamp());
 
-                if (messageModel.isGroupMessage()) {
-                    ((SenderViewHolder) holder).senderName.setVisibility(View.VISIBLE);
-                    ((SenderViewHolder) holder).senderName.setText(messageModel.getSenderName());
-                } else {
-                    ((SenderViewHolder) holder).senderName.setVisibility(View.GONE);
-                }
+        if (holder instanceof SenderViewHolder) {
+            SenderViewHolder senderHolder = (SenderViewHolder) holder;
+
+            // Show date separator if needed
+            if (showDateSeparator) {
+                senderHolder.dateSeparator.setVisibility(View.VISIBLE);
+                SimpleDateFormat sdf = new SimpleDateFormat("MMMM dd, yyyy");
+                senderHolder.dateSeparator.setText(sdf.format(new Date(messageModel.getTimestamp())));
             } else {
-                ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.GONE);
-                ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.GONE);
-                ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.VISIBLE);
-                ((ReceiverViewHolder) holder).receiverMsg.setText(messageModel.getMessage());
-                ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
-
-                if (messageModel.isGroupMessage()) {
-                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.VISIBLE);
-                    ((ReceiverViewHolder) holder).receiverName.setText(messageModel.getSenderName());
-                } else {
-                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.GONE);
-                }
+                senderHolder.dateSeparator.setVisibility(View.GONE);
             }
-        } else if (messageModel.getMessageType().equals("img")) {
-            if (holder.getClass() == SenderViewHolder.class) {
-                ((SenderViewHolder) holder).senderMsg.setVisibility(View.GONE);
-                ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
-                ((SenderViewHolder) holder).sentImage.setVisibility(View.VISIBLE);
-                Picasso.get().load(messageModel.getMessage()).into(((SenderViewHolder) holder).sentImage);
-                ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
 
-                if (messageModel.isGroupMessage()) {
-                    ((SenderViewHolder) holder).senderName.setVisibility(View.VISIBLE);
-                    ((SenderViewHolder) holder).senderName.setText(messageModel.getSenderName());
-                } else {
-                    ((SenderViewHolder) holder).senderName.setVisibility(View.GONE);
-                }
+            // Show message content
+            if (messageModel.getMessageType() == null || messageModel.getMessageType().equals("msg")) {
+                senderHolder.sentImage.setVisibility(View.GONE);
+                senderHolder.sentFile.setVisibility(View.GONE);
+                senderHolder.senderMsg.setVisibility(View.VISIBLE);
+                senderHolder.senderMsg.setText(messageModel.getMessage());
+                senderHolder.senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+            } else if (messageModel.getMessageType().equals("img")) {
+                senderHolder.senderMsg.setVisibility(View.GONE);
+                senderHolder.sentFile.setVisibility(View.GONE);
+                senderHolder.sentImage.setVisibility(View.VISIBLE);
+                Picasso.get().load(messageModel.getMessage()).into(senderHolder.sentImage);
+                senderHolder.senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
             } else {
-                ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.GONE);
-                ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.GONE);
-                ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.VISIBLE);
-                Picasso.get().load(messageModel.getMessage()).into(((ReceiverViewHolder) holder).receivedImage);
-                ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
-
-                if (messageModel.isGroupMessage()) {
-                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.VISIBLE);
-                    ((ReceiverViewHolder) holder).receiverName.setText(messageModel.getSenderName());
+                senderHolder.sentFile.setVisibility(View.VISIBLE);
+                senderHolder.senderMsg.setVisibility(View.GONE);
+                senderHolder.sentImage.setVisibility(View.GONE);
+                if (messageModel.getMessageType().equals("pdf")) {
+                    senderHolder.sentFile.setImageResource(R.drawable.pdf_icon);
                 } else {
-                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.GONE);
+                    senderHolder.sentFile.setImageResource(R.drawable.word_icon);
                 }
+                senderHolder.senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
             }
-        } else {
-            if (holder.getClass() == SenderViewHolder.class) {
-                ((SenderViewHolder) holder).sentFile.setVisibility(View.VISIBLE);
-                ((SenderViewHolder) holder).senderMsg.setVisibility(View.GONE);
-                ((SenderViewHolder) holder).sentImage.setVisibility(View.GONE);
-                if (messageModel.getMessageType().equals("pdf")) {
-                    ((SenderViewHolder) holder).sentFile.setImageResource(R.drawable.pdf_icon);
-                } else {
-                    ((SenderViewHolder) holder).sentFile.setImageResource(R.drawable.word_icon);
-                }
-                ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
 
-                if (messageModel.isGroupMessage()) {
-                    ((SenderViewHolder) holder).senderName.setVisibility(View.VISIBLE);
-                    ((SenderViewHolder) holder).senderName.setText(messageModel.getSenderName());
-                } else {
-                    ((SenderViewHolder) holder).senderName.setVisibility(View.GONE);
-                }
+            if (messageModel.isGroupMessage()) {
+                senderHolder.senderName.setVisibility(View.VISIBLE);
+                senderHolder.senderName.setText(messageModel.getSenderName());
             } else {
-                ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.VISIBLE);
-                ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.GONE);
-                ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.GONE);
-                if (messageModel.getMessageType().equals("pdf")) {
-                    ((ReceiverViewHolder) holder).receivedFile.setImageResource(R.drawable.pdf_icon);
-                } else {
-                    ((ReceiverViewHolder) holder).receivedFile.setImageResource(R.drawable.word_icon);
-                }
-                ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+                senderHolder.senderName.setVisibility(View.GONE);
+            }
+        } else if (holder instanceof ReceiverViewHolder) {
+            ReceiverViewHolder receiverHolder = (ReceiverViewHolder) holder;
 
-                if (messageModel.isGroupMessage()) {
-                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.VISIBLE);
-                    ((ReceiverViewHolder) holder).receiverName.setText(messageModel.getSenderName());
+            // Show date separator if needed
+            if (showDateSeparator) {
+                receiverHolder.dateSeparator.setVisibility(View.VISIBLE);
+                SimpleDateFormat sdf = new SimpleDateFormat("MMMM dd, yyyy");
+                receiverHolder.dateSeparator.setText(sdf.format(new Date(messageModel.getTimestamp())));
+            } else {
+                receiverHolder.dateSeparator.setVisibility(View.GONE);
+            }
+
+            // Show message content
+            if (messageModel.getMessageType() == null || messageModel.getMessageType().equals("msg")) {
+                receiverHolder.receivedImage.setVisibility(View.GONE);
+                receiverHolder.receivedFile.setVisibility(View.GONE);
+                receiverHolder.receiverMsg.setVisibility(View.VISIBLE);
+                receiverHolder.receiverMsg.setText(messageModel.getMessage());
+                receiverHolder.receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+            } else if (messageModel.getMessageType().equals("img")) {
+                receiverHolder.receiverMsg.setVisibility(View.GONE);
+                receiverHolder.receivedFile.setVisibility(View.GONE);
+                receiverHolder.receivedImage.setVisibility(View.VISIBLE);
+                Picasso.get().load(messageModel.getMessage()).into(receiverHolder.receivedImage);
+                receiverHolder.receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+            } else {
+                receiverHolder.receivedFile.setVisibility(View.VISIBLE);
+                receiverHolder.receiverMsg.setVisibility(View.GONE);
+                receiverHolder.receivedImage.setVisibility(View.GONE);
+                if (messageModel.getMessageType().equals("pdf")) {
+                    receiverHolder.receivedFile.setImageResource(R.drawable.pdf_icon);
                 } else {
-                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.GONE);
+                    receiverHolder.receivedFile.setImageResource(R.drawable.word_icon);
                 }
+                receiverHolder.receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+            }
+
+            if (messageModel.isGroupMessage()) {
+                receiverHolder.receiverName.setVisibility(View.VISIBLE);
+                receiverHolder.receiverName.setText(messageModel.getSenderName());
+            } else {
+                receiverHolder.receiverName.setVisibility(View.GONE);
             }
         }
 
@@ -250,7 +267,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public class ReceiverViewHolder extends RecyclerView.ViewHolder {
 
-        TextView receiverMsg, receiverTime, receiverName;
+        TextView receiverMsg, receiverTime, receiverName, dateSeparator;
         ImageView receivedImage;
         ImageButton receivedFile;
 
@@ -259,6 +276,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             receiverMsg = itemView.findViewById(R.id.receiverText);
             receiverTime = itemView.findViewById(R.id.receiverTime);
             receiverName = itemView.findViewById(R.id.receiverName);
+            dateSeparator = itemView.findViewById(R.id.dateSeparator);
             receivedImage = itemView.findViewById(R.id.received_image);
             receivedFile = itemView.findViewById(R.id.received_file);
             receivedImage.setOnClickListener(new View.OnClickListener() {
@@ -307,7 +325,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public class SenderViewHolder extends RecyclerView.ViewHolder {
 
-        TextView senderMsg, senderTime, senderName;
+        TextView senderMsg, senderTime, senderName, dateSeparator;
         ImageView sentImage;
         ImageButton sentFile;
 
@@ -316,6 +334,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             senderMsg = itemView.findViewById(R.id.senderText);
             senderTime = itemView.findViewById(R.id.senderTime);
             senderName = itemView.findViewById(R.id.senderName);
+            dateSeparator = itemView.findViewById(R.id.dateSeparator);
             sentImage = itemView.findViewById(R.id.sent_image);
             sentFile = itemView.findViewById(R.id.sent_file);
 
@@ -337,6 +356,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     openItem(c, messageModel);
                 }
             });
+        }
+    }
+
+    public class DateSeparatorViewHolder extends RecyclerView.ViewHolder {
+
+        TextView dateText;
+
+        public DateSeparatorViewHolder(@NonNull View itemView) {
+            super(itemView);
+            dateText = itemView.findViewById(R.id.dateSeparator);
         }
     }
 
