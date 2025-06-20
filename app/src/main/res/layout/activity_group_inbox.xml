@@ -30,11 +30,11 @@
             android:id="@+id/Top_layout"
             android:layout_width="match_parent"
             android:layout_height="80dp"
-            tools:ignore="MissingConstraints"
             android:background="@color/blue"
-            tools:layout_editor_absoluteX="0dp"
-            tools:layout_editor_absoluteY="0dp"
-            android:padding="5dp">
+            android:padding="5dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/imageBack"
@@ -85,7 +85,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="#FFFFFF"
-                android:textSize="20dp"
+                android:textSize="20sp"
                 android:textStyle="bold"
                 app:layout_constraintBottom_toBottomOf="@id/imageBack"
                 app:layout_constraintEnd_toStartOf="@+id/inboxInfo"
@@ -137,8 +137,9 @@
             app:layout_constraintBottom_toTopOf="@+id/inputMessage"
             app:layout_constraintTop_toBottomOf="@+id/Top_layout"
             app:layout_constraintVertical_bias="0.0"
-            app:stackFromEnd="true"
-            tools:layout_editor_absoluteX="-151dp" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:stackFromEnd="true" />
 
         <FrameLayout
             android:id="@+id/layoutSend"
@@ -173,8 +174,22 @@
             android:layout_marginStart="10dp"
             android:background="@drawable/image_send_button"
             android:backgroundTint="@color/white"
+            android:src="@drawable/ic_image"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
+
+        <ImageButton
+            android:id="@+id/voice_send_button"
+            android:clickable="true"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:layout_marginBottom="12dp"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/voice_send_button"
+            android:src="@drawable/ic_voice"
+            android:backgroundTint="@color/white"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@id/image_send_button" />
 
         <EditText
             android:id="@+id/inputMessage"
@@ -194,7 +209,7 @@
             android:textColorHint="@color/secondary_text"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/layoutSend"
-            app:layout_constraintStart_toEndOf="@id/image_send_button" />
+            app:layout_constraintStart_toEndOf="@id/voice_send_button" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

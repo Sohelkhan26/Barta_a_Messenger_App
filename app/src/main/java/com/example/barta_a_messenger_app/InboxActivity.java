@@ -16,9 +16,11 @@ import android.app.ProgressDialog;
 import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
 
@@ -78,6 +80,7 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
     private static final int REQUEST_CODE_SIGN_IN = 1;
     private static final int REQUEST_CODE_OPEN_DOCUMENT = 2;
+    private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
     private static final Log log = LogFactory.getLog(InboxActivity.class);
     TextView userName;
     Scope ACCESS_DRIVE_SCOPE = new Scope(Scopes.DRIVE_FILE);
@@ -95,10 +98,16 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
     FirebaseDatabase database;
     ImageButton imageSendButton;
+    ImageButton voiceSendButton;
 
     String checker = "", myUrl = "";
-    Uri imagePath, fileUri;
-    String imageUrl, fileUrl;
+    Uri imagePath, fileUri, voiceUri;
+    String imageUrl, fileUrl, voiceUrl;
+
+    // Voice recording variables
+    private MediaRecorder mediaRecorder;
+    private String voiceFileName;
+    private boolean isRecording = false;
 
     String senderRoom, receiverRoom, senderId, receiverId;
 
@@ -146,6 +155,7 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         inputMessage = findViewById(R.id.inputMessage);
 
         imageSendButton = findViewById(R.id.image_send_button);
+        voiceSendButton = findViewById(R.id.voice_send_button);
 
         database = FirebaseDatabase.getInstance();
         mAuth = FirebaseAuth.getInstance();
@@ -239,34 +249,34 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
                                 database.getReference().child("user")
                                         .child(message.getUid()).get().addOnCompleteListener(new OnCompleteListener<DataSnapshot>() {
-                                            @Override
-                                            public void onComplete(@NonNull Task<DataSnapshot> task) {
-                                                if (task.isSuccessful()) {
-                                                    DataSnapshot ds = task.getResult();
-                                                    if (ds.exists()) {
-                                                        messageSenderName = ds.child("username").getValue(String.class);
+                                    @Override
+                                    public void onComplete(@NonNull Task<DataSnapshot> task) {
+                                        if (task.isSuccessful()) {
+                                            DataSnapshot ds = task.getResult();
+                                            if (ds.exists()) {
+                                                messageSenderName = ds.child("username").getValue(String.class);
 
-                                                        try {
-                                                            decryptedmessagenotification = CryptoHelper.decrypt("H@rrY_p0tter_106", message.getMessage());
-                                                        } catch (Exception e) {
-                                                            throw new RuntimeException(e);
-                                                        }
-
-                                                        if (message.getMessageType().equals("img")) {
-                                                            decryptedmessagenotification = "sent an image";
-                                                        }
-
-                                                        NotificationHelper.notificationDialog(InboxActivity.this, decryptedmessagenotification, messageSenderName);
-
-                                                        database.getReference().child("chats")
-                                                                .child(senderId).child(datasnapshot.getKey())
-                                                                .child(dataSnapshot2.getKey())
-                                                                .child("isNotified").setValue("yes");
-
-                                                    }
+                                                try {
+                                                    decryptedmessagenotification = CryptoHelper.decrypt("H@rrY_p0tter_106", message.getMessage());
+                                                } catch (Exception e) {
+                                                    throw new RuntimeException(e);
                                                 }
+
+                                                if (message.getMessageType().equals("img")) {
+                                                    decryptedmessagenotification = "sent an image";
+                                                }
+
+                                                NotificationHelper.notificationDialog(InboxActivity.this, decryptedmessagenotification, messageSenderName);
+
+                                                database.getReference().child("chats")
+                                                        .child(senderId).child(datasnapshot.getKey())
+                                                        .child(dataSnapshot2.getKey())
+                                                        .child("isNotified").setValue("yes");
+
                                             }
-                                        });
+                                        }
+                                    }
+                                });
 
                             }
                         }
@@ -320,48 +330,48 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                             .child(senderId)
                             .child(key)
                             .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
-                                @Override
-                                public void onSuccess(Void unused) {
-                                    model.setMessage(message);
-                                    updateLocalDatabase(model);
+                        @Override
+                        public void onSuccess(Void unused) {
+                            model.setMessage(message);
+                            updateLocalDatabase(model);
 
-                                    localMessageModel.add(model);
-                                    chatAdapter.notifyDataSetChanged();
-                                    chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+                            localMessageModel.add(model);
+                            chatAdapter.notifyDataSetChanged();
+                            chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
 
-                                    database.getReference().child("Contacts").child(receiverId)
-                                            .child(senderId).child("last_message")
-                                            .setValue(encryptedMessage);
+                            database.getReference().child("Contacts").child(receiverId)
+                                    .child(senderId).child("last_message")
+                                    .setValue(encryptedMessage);
 
-                                    database.getReference().child("Contacts").child(receiverId)
-                                            .child(senderId).child("last_sender_name")
-                                            .setValue("");
+                            database.getReference().child("Contacts").child(receiverId)
+                                    .child(senderId).child("last_sender_name")
+                                    .setValue("");
 
-                                    database.getReference().child("Contacts").child(receiverId)
-                                            .child(senderId).child("message_time")
-                                            .setValue(model.getTimestamp());
+                            database.getReference().child("Contacts").child(receiverId)
+                                    .child(senderId).child("message_time")
+                                    .setValue(model.getTimestamp());
 
-                                    database.getReference().child("Contacts").child(receiverId)
-                                            .child(senderId).child("last_message_seen")
-                                            .setValue("false");
+                            database.getReference().child("Contacts").child(receiverId)
+                                    .child(senderId).child("last_message_seen")
+                                    .setValue("false");
 
-                                    database.getReference().child("Contacts").child(senderId)
-                                            .child(receiverId).child("last_message")
-                                            .setValue(encryptedMessage);
+                            database.getReference().child("Contacts").child(senderId)
+                                    .child(receiverId).child("last_message")
+                                    .setValue(encryptedMessage);
 
-                                    database.getReference().child("Contacts").child(senderId)
-                                            .child(receiverId).child("last_sender_name")
-                                            .setValue("You");
+                            database.getReference().child("Contacts").child(senderId)
+                                    .child(receiverId).child("last_sender_name")
+                                    .setValue("You");
 
-                                    database.getReference().child("Contacts").child(senderId)
-                                            .child(receiverId).child("message_time")
-                                            .setValue(model.getTimestamp());
+                            database.getReference().child("Contacts").child(senderId)
+                                    .child(receiverId).child("message_time")
+                                    .setValue(model.getTimestamp());
 
-                                    database.getReference().child("Contacts").child(senderId)
-                                            .child(receiverId).child("last_message_seen")
-                                            .setValue("true");
-                                }
-                            });
+                            database.getReference().child("Contacts").child(senderId)
+                                    .child(receiverId).child("last_message_seen")
+                                    .setValue("true");
+                        }
+                    });
 
                 }
 
@@ -372,9 +382,9 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             @Override
             public void onClick(View view) {
                 CharSequence options[] = new CharSequence[]{
-                        "Images",
-                        "PDF Files",
-                        "MS Word Files"
+                    "Images",
+                    "PDF Files",
+                    "MS Word Files"
                 };
 
                 AlertDialog.Builder builder = new AlertDialog.Builder(InboxActivity.this);
@@ -409,6 +419,21 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                     }
                 });
                 builder.show();
+            }
+        });
+
+        voiceSendButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (checkAudioPermission()) {
+                    if (!isRecording) {
+                        startRecording();
+                    } else {
+                        stopRecording();
+                    }
+                } else {
+                    requestAudioPermission();
+                }
             }
         });
 
@@ -477,10 +502,10 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                     for (MessageModel message : selectedMessages) {
                         android.util.Log.d("SelectedMessages",
                                 "Message ID: " + message.getMessageId()
-                                        + ", Content: " + message.getMessage()
-                                        + ", Type: " + message.getMessageType()
-                                        + ", Sender: " + message.getUid()
-                                        + ", Timestamp: " + message.getTimestamp()
+                                + ", Content: " + message.getMessage()
+                                + ", Type: " + message.getMessageType()
+                                + ", Sender: " + message.getUid()
+                                + ", Timestamp: " + message.getTimestamp()
                         );
                     }
 
@@ -600,22 +625,22 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
         GoogleSignInAccount mAccount = GoogleSignIn.getLastSignedInAccount(this);
 
-        if(mAccount == null){
+        if (mAccount == null) {
             Toast.makeText(this, "No Valid Google account signed in. Cannot upload image.", Toast.LENGTH_LONG).show();
             return;
         }
         GoogleAccountCredential credential
                 = GoogleAccountCredential.usingOAuth2(
-                getApplicationContext(), Collections.singleton(Scopes.DRIVE_FILE));
+                        getApplicationContext(), Collections.singleton(Scopes.DRIVE_FILE));
         credential.setSelectedAccount(mAccount.getAccount());
         android.util.Log.d("Inbox ", "driveSetUp: " + mAccount.getEmail());
         Drive googleDriveService
                 = new com.google.api.services.drive.Drive.Builder(
-                AndroidHttp.newCompatibleTransport(),
-                new GsonFactory(),
-                credential)
-                .setApplicationName("GoogleDriveIntegration 3")
-                .build();
+                        AndroidHttp.newCompatibleTransport(),
+                        new GsonFactory(),
+                        credential)
+                        .setApplicationName("GoogleDriveIntegration 3")
+                        .build();
         driveServiceHelper = new DriveServiceHelper(googleDriveService, this.getApplicationContext());
     }
 
@@ -691,50 +716,50 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                                 .child(senderId)
                                 .child(key)
                                 .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
-                                    @Override
-                                    public void onSuccess(Void unused) {
-                                        model.setMessage(downloadUrl);  // Store the actual URL in the message
-                                        updateLocalDatabase(model);
-                                        localMessageModel.add(model);
-                                        chatAdapter.notifyDataSetChanged();
-                                        chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+                            @Override
+                            public void onSuccess(Void unused) {
+                                model.setMessage(downloadUrl);  // Store the actual URL in the message
+                                updateLocalDatabase(model);
+                                localMessageModel.add(model);
+                                chatAdapter.notifyDataSetChanged();
+                                chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
 
-                                        // Update last message and metadata in contacts
-                                        database.getReference().child("Contacts").child(receiverId)
-                                                .child(senderId).child("last_message")
-                                                .setValue("sent an image");
+                                // Update last message and metadata in contacts
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("last_message")
+                                        .setValue("sent an image");
 
-                                        database.getReference().child("Contacts").child(receiverId)
-                                                .child(senderId).child("last_sender_name")
-                                                .setValue("");
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("last_sender_name")
+                                        .setValue("");
 
-                                        database.getReference().child("Contacts").child(receiverId)
-                                                .child(senderId).child("message_time")
-                                                .setValue(model.getTimestamp());
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("message_time")
+                                        .setValue(model.getTimestamp());
 
-                                        database.getReference().child("Contacts").child(receiverId)
-                                                .child(senderId).child("last_message_seen")
-                                                .setValue("false");
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("last_message_seen")
+                                        .setValue("false");
 
-                                        database.getReference().child("Contacts").child(senderId)
-                                                .child(receiverId).child("last_message")
-                                                .setValue("sent an image");
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("last_message")
+                                        .setValue("sent an image");
 
-                                        database.getReference().child("Contacts").child(senderId)
-                                                .child(receiverId).child("last_sender_name")
-                                                .setValue("You");
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("last_sender_name")
+                                        .setValue("You");
 
-                                        database.getReference().child("Contacts").child(senderId)
-                                                .child(receiverId).child("message_time")
-                                                .setValue(model.getTimestamp());
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("message_time")
+                                        .setValue(model.getTimestamp());
 
-                                        database.getReference().child("Contacts").child(senderId)
-                                                .child(receiverId).child("last_message_seen")
-                                                .setValue("true");
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("last_message_seen")
+                                        .setValue("true");
 
-                                        progressDialog.dismiss();
-                                    }
-                                });
+                                progressDialog.dismiss();
+                            }
+                        });
                     } else {
                         // Handle failure
                         progressDialog.dismiss();
@@ -802,50 +827,50 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                                 .child(senderId)
                                 .child(key)
                                 .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
-                                    @Override
-                                    public void onSuccess(Void unused) {
-                                        model.setMessage(fileUrl); // Store the actual URL in the message
-                                        updateLocalDatabase(model);
-                                        localMessageModel.add(model);
-                                        chatAdapter.notifyDataSetChanged();
-                                        chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+                            @Override
+                            public void onSuccess(Void unused) {
+                                model.setMessage(fileUrl); // Store the actual URL in the message
+                                updateLocalDatabase(model);
+                                localMessageModel.add(model);
+                                chatAdapter.notifyDataSetChanged();
+                                chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
 
-                                        // Update the contacts with the last message and timestamp
-                                        database.getReference().child("Contacts").child(receiverId)
-                                                .child(senderId).child("last_message")
-                                                .setValue("sent a file");
+                                // Update the contacts with the last message and timestamp
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("last_message")
+                                        .setValue("sent a file");
 
-                                        database.getReference().child("Contacts").child(receiverId)
-                                                .child(senderId).child("last_sender_name")
-                                                .setValue("");
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("last_sender_name")
+                                        .setValue("");
 
-                                        database.getReference().child("Contacts").child(receiverId)
-                                                .child(senderId).child("message_time")
-                                                .setValue(model.getTimestamp());
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("message_time")
+                                        .setValue(model.getTimestamp());
 
-                                        database.getReference().child("Contacts").child(receiverId)
-                                                .child(senderId).child("last_message_seen")
-                                                .setValue("false");
+                                database.getReference().child("Contacts").child(receiverId)
+                                        .child(senderId).child("last_message_seen")
+                                        .setValue("false");
 
-                                        // Repeat similar updates for the sender
-                                        database.getReference().child("Contacts").child(senderId)
-                                                .child(receiverId).child("last_message")
-                                                .setValue("sent a file");
+                                // Repeat similar updates for the sender
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("last_message")
+                                        .setValue("sent a file");
 
-                                        database.getReference().child("Contacts").child(senderId)
-                                                .child(receiverId).child("last_sender_name")
-                                                .setValue("You");
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("last_sender_name")
+                                        .setValue("You");
 
-                                        database.getReference().child("Contacts").child(senderId)
-                                                .child(receiverId).child("message_time")
-                                                .setValue(model.getTimestamp());
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("message_time")
+                                        .setValue(model.getTimestamp());
 
-                                        database.getReference().child("Contacts").child(senderId)
-                                                .child(receiverId).child("last_message_seen")
-                                                .setValue("true");
-                                        progressDialog.dismiss();
-                                    }
-                                });
+                                database.getReference().child("Contacts").child(senderId)
+                                        .child(receiverId).child("last_message_seen")
+                                        .setValue("true");
+                                progressDialog.dismiss();
+                            }
+                        });
                     } else {
                         // Handle failure to upload
                         progressDialog.dismiss();
@@ -1229,5 +1254,259 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                 .child(receiverId)
                 .child(senderId)
                 .child("last_message_time").setValue(0);
+    }
+
+    // Voice Recording Methods
+    private boolean checkAudioPermission() {
+        boolean recordAudio = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        boolean modifyAudio = checkSelfPermission(android.Manifest.permission.MODIFY_AUDIO_SETTINGS) == PackageManager.PERMISSION_GRANTED;
+
+        android.util.Log.d("VoiceRecording", "Audio permissions - Record: " + recordAudio + ", Modify: " + modifyAudio);
+        return recordAudio && modifyAudio;
+    }
+
+    private void requestAudioPermission() {
+        String[] permissions = {
+            android.Manifest.permission.RECORD_AUDIO,
+            android.Manifest.permission.MODIFY_AUDIO_SETTINGS
+        };
+
+        android.util.Log.d("VoiceRecording", "Requesting audio permissions");
+        requestPermissions(permissions, REQUEST_RECORD_AUDIO_PERMISSION);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            boolean allGranted = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+
+            if (allGranted) {
+                android.util.Log.d("VoiceRecording", "All audio permissions granted");
+                Toast.makeText(this, "🎤 Audio permissions granted. You can now record voice messages.", Toast.LENGTH_LONG).show();
+            } else {
+                android.util.Log.e("VoiceRecording", "Audio permissions denied");
+                Toast.makeText(this, "❌ Audio permissions denied. Voice recording requires microphone access.", Toast.LENGTH_LONG).show();
+
+                // Show explanation dialog
+                new AlertDialog.Builder(this)
+                        .setTitle("Microphone Permission Required")
+                        .setMessage("To send voice messages, this app needs access to your microphone. Please grant permission in Settings > Apps > Permissions.")
+                        .setPositiveButton("Settings", (dialog, which) -> {
+                            Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                            intent.setData(Uri.parse("package:" + getPackageName()));
+                            startActivity(intent);
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            }
+        }
+    }
+
+    private void startRecording() {
+        try {
+            // Create file name for voice recording in M4A format (AAC in MP4 container)
+            voiceFileName = getExternalCacheDir().getAbsolutePath() + "/voice_message_" + System.currentTimeMillis() + ".m4a";
+
+            // Initialize MediaRecorder with high-quality settings
+            mediaRecorder = new MediaRecorder();
+
+            // Use VOICE_RECOGNITION for better microphone sensitivity
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION);
+
+            // Use MPEG_4 format (creates M4A files with AAC audio)
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            mediaRecorder.setOutputFile(voiceFileName);
+
+            // Use AAC encoder (creates high-quality M4A files)
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+
+            // Set high quality audio settings
+            mediaRecorder.setAudioSamplingRate(44100);     // CD quality
+            mediaRecorder.setAudioEncodingBitRate(192000); // Higher bitrate for better quality
+            mediaRecorder.setAudioChannels(1);             // Mono for voice
+
+            android.util.Log.d("VoiceRecording", "Starting M4A recording with file: " + voiceFileName);
+
+            mediaRecorder.prepare();
+            mediaRecorder.start();
+
+            isRecording = true;
+
+            // Update UI to show recording state
+            voiceSendButton.setBackgroundTintList(getResources().getColorStateList(android.R.color.holo_red_light));
+            Toast.makeText(this, "🎤 Recording High Quality Audio... Speak clearly. Tap again to stop", Toast.LENGTH_LONG).show();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            android.util.Log.e("VoiceRecording", "Error starting MP3 recording: " + e.getMessage());
+            Toast.makeText(this, "Error starting recording: " + e.getMessage(), Toast.LENGTH_LONG).show();
+
+            // Clean up if failed
+            if (mediaRecorder != null) {
+                try {
+                    mediaRecorder.release();
+                    mediaRecorder = null;
+                } catch (Exception ex) {
+                    android.util.Log.e("VoiceRecording", "Error releasing MediaRecorder: " + ex.getMessage());
+                }
+            }
+            isRecording = false;
+        }
+    }
+
+    private void stopRecording() {
+        try {
+            if (mediaRecorder != null && isRecording) {
+                android.util.Log.d("VoiceRecording", "Stopping recording...");
+
+                mediaRecorder.stop();
+                mediaRecorder.release();
+                mediaRecorder = null;
+
+                isRecording = false;
+
+                // Restore original button color
+                voiceSendButton.setBackgroundTintList(getResources().getColorStateList(android.R.color.white));
+
+                // Check if file was created and has content
+                java.io.File voiceFile = new java.io.File(voiceFileName);
+                if (voiceFile.exists() && voiceFile.length() > 0) {
+                    android.util.Log.d("VoiceRecording", "Voice file created successfully. Size: " + voiceFile.length() + " bytes");
+
+                    // Create URI from file path and upload to Google Drive
+                    voiceUri = Uri.fromFile(voiceFile);
+
+                    Toast.makeText(this, "✅ Recording stopped (" + (voiceFile.length() / 1024) + "KB). Uploading voice message...", Toast.LENGTH_LONG).show();
+                    uploadVoiceMessageToDrive();
+                } else {
+                    android.util.Log.e("VoiceRecording", "Voice file not created or empty");
+                    Toast.makeText(this, "Recording failed - no audio captured. Please check microphone permissions.", Toast.LENGTH_LONG).show();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            android.util.Log.e("VoiceRecording", "Error stopping recording: " + e.getMessage());
+            Toast.makeText(this, "Error stopping recording: " + e.getMessage(), Toast.LENGTH_LONG).show();
+
+            // Clean up
+            isRecording = false;
+            voiceSendButton.setBackgroundTintList(getResources().getColorStateList(android.R.color.white));
+
+            if (mediaRecorder != null) {
+                try {
+                    mediaRecorder.release();
+                    mediaRecorder = null;
+                } catch (Exception ex) {
+                    android.util.Log.e("VoiceRecording", "Error releasing MediaRecorder in cleanup: " + ex.getMessage());
+                }
+            }
+        }
+    }
+
+    private void uploadVoiceMessageToDrive() {
+        checkForGooglePermissions();
+        if (driveServiceHelper == null) {
+            Toast.makeText(this, "Drive Service Helper is null. Setting up Drive connection...", Toast.LENGTH_SHORT).show();
+            driveSetUp();
+            // Try again after setup
+            if (driveServiceHelper == null) {
+                Toast.makeText(this, "Failed to initialize Google Drive. Please try again.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+        uploadVoiceMessage();
+    }
+
+    private void uploadVoiceMessage() {
+        GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(getApplicationContext());
+        if (account == null) {
+            Toast.makeText(this, "No Google account signed in. Cannot upload voice message.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        ProgressDialog progressDialog = new ProgressDialog(this);
+        progressDialog.setTitle("Uploading Voice Message...");
+        progressDialog.show();
+
+        try {
+            // Upload voice file to Google Drive
+            Task<File> uploadTask = driveServiceHelper.uploadFile(voiceUri, "voice_message_" + System.currentTimeMillis() + ".m4a");
+
+            uploadTask.addOnCompleteListener(new OnCompleteListener<File>() {
+                @Override
+                public void onComplete(@NonNull Task<File> task) {
+                    if (task.isSuccessful()) {
+                        // Get file ID and construct download URL
+                        File uploadedFile = task.getResult();
+                        String fileId = uploadedFile.getId();
+                        String downloadUrl = "https://drive.google.com/uc?id=" + fileId;
+
+                        // Encrypt the download URL
+                        try {
+                            encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", downloadUrl);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        // Create message model for voice message
+                        MessageModel model = new MessageModel(senderId, encryptedMessage, "voice");
+                        model.setTimestamp(new Date().getTime());
+
+                        // Push message to Firebase
+                        String key = database.getReference().child("chats")
+                                .child(receiverId)
+                                .child(senderId)
+                                .push().getKey();
+
+                        model.setMessageId(key);
+                        model.setIsNotified("no");
+
+                        // Save message to database
+                        database.getReference().child("chats")
+                                .child(receiverId)
+                                .child(senderId)
+                                .child(key)
+                                .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
+                            @Override
+                            public void onSuccess(Void unused) {
+                                model.setMessage(downloadUrl);
+                                updateLocalDatabase(model);
+                                localMessageModel.add(model);
+                                chatAdapter.notifyDataSetChanged();
+                                chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+
+                                // Update contacts with voice message info
+                                updateContactInfo(receiverId, senderId, "sent a voice message", "", model.getTimestamp(), "false");
+                                updateContactInfo(senderId, receiverId, "sent a voice message", "You", model.getTimestamp(), "true");
+
+                                progressDialog.dismiss();
+
+                                // Delete local voice file after upload
+                                java.io.File voiceFile = new java.io.File(voiceFileName);
+                                if (voiceFile.exists()) {
+                                    voiceFile.delete();
+                                }
+
+                                Toast.makeText(InboxActivity.this, "Voice message sent successfully!", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    } else {
+                        progressDialog.dismiss();
+                        Toast.makeText(getApplicationContext(), "Failed to upload voice message: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        } catch (Exception e) {
+            progressDialog.dismiss();
+            e.printStackTrace();
+            Toast.makeText(getApplicationContext(), "Error during upload: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 }
