@@ -79,7 +79,6 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
         }
 
 //        Picasso.get().load(contact.getProfilePic()).into(holder.profile_pic);
-
 //        ImageView alertImageView = holder.itemView.findViewById(R.id.danger);
 //
 //        if (record.shouldShowAlert()) {
