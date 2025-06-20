@@ -37,12 +37,6 @@
             android:name=".AddContactActivity"
             android:exported="false" />
         <activity
-            android:name=".SettingsActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ProfileActivity"
-            android:exported="false" />
-        <activity
             android:name=".InboxActivity"
             android:exported="false" />
         <activity
