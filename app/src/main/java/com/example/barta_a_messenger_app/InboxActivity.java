@@ -20,6 +20,7 @@ import android.content.pm.PackageManager;
 
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.media.Image;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
@@ -124,9 +125,9 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     ArrayList<MessageModel> selectedMessages;
     boolean isForwardMode = false;
 
-    private Button forwardButton;
+    private ImageButton forwardButton;
     private LinearLayout actionButtonsLayout;
-    private Button deleteButton;
+    private ImageButton deleteButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -470,46 +471,37 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         forwardButton = findViewById(R.id.forwardButton);
         deleteButton = findViewById(R.id.deleteButton);
 
+        forwardButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (selectedMessages.size() > 0) {
+                    // Handle forward action
+                    showContactsDialog();
+                } else {
+                    Toast.makeText(InboxActivity.this, "No messages selected", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
         deleteButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (selectedMessages.size() > 0) {
                     new AlertDialog.Builder(InboxActivity.this)
-                            .setTitle("Delete Messages")
-                            .setMessage("Are you sure you want to delete selected messages?")
-                            .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                    for (MessageModel message : selectedMessages) {
-                                        // Delete message logic here
-                                        deleteMessage(message);
-                                    }
-                                    chatAdapter.clearSelection();
-                                    actionButtonsLayout.setVisibility(View.GONE);
+                        .setTitle("Delete Messages")
+                        .setMessage("Are you sure you want to delete selected messages?")
+                        .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                for (MessageModel message : selectedMessages) {
+                                    deleteMessage(message);
                                 }
-                            })
-                            .setNegativeButton("Cancel", null)
-                            .show();
-                }
-            }
-        });
-
-        forwardButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (selectedMessages.size() > 0) {
-                    // লগ করা সিলেক্টেড মেসেজগুলো
-                    for (MessageModel message : selectedMessages) {
-                        android.util.Log.d("SelectedMessages",
-                                "Message ID: " + message.getMessageId()
-                                + ", Content: " + message.getMessage()
-                                + ", Type: " + message.getMessageType()
-                                + ", Sender: " + message.getUid()
-                                + ", Timestamp: " + message.getTimestamp()
-                        );
-                    }
-
-                    showContactsDialog();
+                                chatAdapter.clearSelection();
+                                actionButtonsLayout.setVisibility(View.GONE);
+                            }
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
                 } else {
                     Toast.makeText(InboxActivity.this, "No messages selected", Toast.LENGTH_SHORT).show();
                 }
@@ -1157,6 +1149,11 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         actionButtonsLayout.setVisibility(View.VISIBLE);
         forwardButton.setVisibility(View.VISIBLE);
         deleteButton.setVisibility(View.VISIBLE);
+        // Hide other top bar elements
+        findViewById(R.id.userName).setVisibility(View.INVISIBLE);
+        findViewById(R.id.headImageView).setVisibility(View.INVISIBLE);
+        findViewById(R.id.imageBack).setVisibility(View.INVISIBLE);
+        findViewById(R.id.imageInfo).setVisibility(View.INVISIBLE);
     }
 
     @Override
@@ -1166,10 +1163,20 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             actionButtonsLayout.setVisibility(View.VISIBLE);
             forwardButton.setVisibility(View.VISIBLE);
             deleteButton.setVisibility(View.VISIBLE);
+            // Hide other top bar elements
+            findViewById(R.id.userName).setVisibility(View.INVISIBLE);
+            findViewById(R.id.headImageView).setVisibility(View.INVISIBLE);
+            findViewById(R.id.imageBack).setVisibility(View.INVISIBLE);
+            findViewById(R.id.imageInfo).setVisibility(View.INVISIBLE);
         } else {
             actionButtonsLayout.setVisibility(View.GONE);
             forwardButton.setVisibility(View.GONE);
             deleteButton.setVisibility(View.GONE);
+            // Show other top bar elements
+            findViewById(R.id.userName).setVisibility(View.VISIBLE);
+            findViewById(R.id.headImageView).setVisibility(View.VISIBLE);
+            findViewById(R.id.imageBack).setVisibility(View.VISIBLE);
+            findViewById(R.id.imageInfo).setVisibility(View.VISIBLE);
             chatAdapter.clearSelection();
         }
     }
@@ -1180,6 +1187,11 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             actionButtonsLayout.setVisibility(View.GONE);
             forwardButton.setVisibility(View.GONE);
             deleteButton.setVisibility(View.GONE);
+            // Show other top bar elements
+            findViewById(R.id.userName).setVisibility(View.VISIBLE);
+            findViewById(R.id.headImageView).setVisibility(View.VISIBLE);
+            findViewById(R.id.imageBack).setVisibility(View.VISIBLE);
+            findViewById(R.id.imageInfo).setVisibility(View.VISIBLE);
             chatAdapter.clearSelection();
         } else {
             super.onBackPressed();
