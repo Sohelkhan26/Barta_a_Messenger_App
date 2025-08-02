@@ -91,6 +91,9 @@
         <activity
             android:name=".GroupInboxActivity"
             android:exported="false" />
+        <activity
+            android:name=".ForwardContactsActivity"
+            android:exported="false" />
 
         <service
             android:name=".FCMNotificationService"

@@ -82,6 +82,7 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     private static final int REQUEST_CODE_SIGN_IN = 1;
     private static final int REQUEST_CODE_OPEN_DOCUMENT = 2;
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
+    private static final int REQUEST_CODE_FORWARD_CONTACTS = 300;
     private static final Log log = LogFactory.getLog(InboxActivity.class);
     TextView userName;
     Scope ACCESS_DRIVE_SCOPE = new Scope(Scopes.DRIVE_FILE);
@@ -475,8 +476,22 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             @Override
             public void onClick(View v) {
                 if (selectedMessages.size() > 0) {
-                    // Handle forward action
-                    showContactsDialog();
+                    try {
+                        // Launch the new forward contacts activity
+                        android.util.Log.d("InboxActivity", "Starting ForwardContactsActivity with " + selectedMessages.size() + " messages");
+                        ForwardContactsActivity.startForForward(
+                            InboxActivity.this, 
+                            senderId, 
+                            receiverId, 
+                            selectedMessages, 
+                            REQUEST_CODE_FORWARD_CONTACTS
+                        );
+                    } catch (Exception e) {
+                        android.util.Log.e("InboxActivity", "Error starting ForwardContactsActivity: " + e.getMessage());
+                        e.printStackTrace();
+                        // Fallback to old dialog method
+                        showContactsDialog();
+                    }
                 } else {
                     Toast.makeText(InboxActivity.this, "No messages selected", Toast.LENGTH_SHORT).show();
                 }
@@ -601,6 +616,27 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                 // If permission was denied, show an error message or ask user to try again
                 Toast.makeText(this, "Permission denied. Unable to access Google Drive", Toast.LENGTH_SHORT).show();
             }
+        }
+        
+        if (requestCode == REQUEST_CODE_FORWARD_CONTACTS) {
+            if (resultCode == RESULT_OK) {
+                // Messages were forwarded successfully
+                // Hide the action buttons and clear selection
+                actionButtonsLayout.setVisibility(View.GONE);
+                forwardButton.setVisibility(View.GONE);
+                deleteButton.setVisibility(View.GONE);
+                
+                // Show other top bar elements
+                findViewById(R.id.userName).setVisibility(View.VISIBLE);
+                findViewById(R.id.headImageView).setVisibility(View.VISIBLE);
+                findViewById(R.id.imageBack).setVisibility(View.VISIBLE);
+                findViewById(R.id.imageInfo).setVisibility(View.VISIBLE);
+                
+                // Clear selection in adapter
+                chatAdapter.clearSelection();
+                selectedMessages.clear();
+            }
+            // If RESULT_CANCELED, user cancelled the forwarding, keep selection as is
         }
     }
 

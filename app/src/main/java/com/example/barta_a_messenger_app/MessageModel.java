@@ -1,6 +1,8 @@
 package com.example.barta_a_messenger_app;
 
-public class MessageModel {
+import java.io.Serializable;
+
+public class MessageModel implements Serializable {
 
     String uid, message, messageId;
     String messageType;
