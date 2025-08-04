@@ -147,8 +147,8 @@ public class AddContactActivity extends AppCompatActivity {
             return;
         }
 
-        // Create request with encryption key
-        Request request = new Request("", phone, uid, contact_uid, "pending", encryptionKey);
+        // Create request WITHOUT encryption key (key is now stored in Firebase)
+        Request request = new Request("", phone, uid, contact_uid, "pending");
 
         databaseReference.child("FriendRequestPending").child(contact_uid).child(uid).setValue(request)
             .addOnSuccessListener(aVoid -> {

@@ -1,6 +1,7 @@
 package com.example.barta_a_messenger_app;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -94,22 +95,42 @@ public class friendRequestFragment extends Fragment implements FriendRequestAdap
 
     @Override
     public void onAcceptClicked(Request request) {
-        // Store the encryption key from the friend request
+        // Retrieve the encryption key from Firebase instead of the request object
         EncryptionKeyManager keyManager = new EncryptionKeyManager(getContext());
         
-        if (request.getEncryptionKey() != null && !request.getEncryptionKey().isEmpty()) {
-            boolean keyStored = keyManager.storeEncryptionKey(request.getSenderUid(), request.getEncryptionKey());
-            if (!keyStored) {
-                Toast.makeText(getContext(), "Failed to store encryption key", Toast.LENGTH_SHORT).show();
-                keyManager.close();
-                return;
+        // Retrieve key from Firebase and store locally
+        keyManager.retrieveAndStoreKeyFromFirebase(request.getSenderUid(), new EncryptionKeyManager.OnKeyRetrievedListener() {
+            @Override
+            public void onKeyRetrieved(boolean success, String encryptionKey) {
+                if (success) {
+                    Log.d("FriendRequest", "Successfully retrieved and stored encryption key from Firebase");
+                    
+                    // Continue with friend request acceptance
+                    acceptFriendRequestInternal(request, keyManager);
+                } else {
+                    // Fallback: try to get key from request object (for backward compatibility)
+                    if (request.getEncryptionKey() != null && !request.getEncryptionKey().isEmpty()) {
+                        boolean keyStored = keyManager.storeEncryptionKey(request.getSenderUid(), request.getEncryptionKey());
+                        if (keyStored) {
+                            Log.d("FriendRequest", "Stored encryption key from request object (fallback)");
+                            acceptFriendRequestInternal(request, keyManager);
+                        } else {
+                            Toast.makeText(getContext(), "Failed to store encryption key", Toast.LENGTH_SHORT).show();
+                            keyManager.close();
+                        }
+                    } else {
+                        Toast.makeText(getContext(), "No encryption key found for this friend request", Toast.LENGTH_SHORT).show();
+                        keyManager.close();
+                    }
+                }
             }
-        } else {
-            Toast.makeText(getContext(), "No encryption key received with friend request", Toast.LENGTH_SHORT).show();
-            keyManager.close();
-            return;
-        }
-        
+        });
+    }
+    
+    /**
+     * Internal method to complete friend request acceptance after key is stored
+     */
+    private void acceptFriendRequestInternal(Request request, EncryptionKeyManager keyManager) {
         DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(request.getSenderUid());
         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override

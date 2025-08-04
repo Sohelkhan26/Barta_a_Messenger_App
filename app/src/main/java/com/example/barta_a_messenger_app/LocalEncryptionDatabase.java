@@ -258,6 +258,46 @@ public class LocalEncryptionDatabase extends SQLiteOpenHelper {
     }
     
     /**
+     * Checks if a specific encryption key already exists in the database (for collision detection)
+     * @param encryptionKey The encryption key to check
+     * @return true if key exists, false otherwise
+     */
+    public boolean doesKeyExist(String encryptionKey) {
+        if (encryptionKey == null || encryptionKey.isEmpty()) {
+            return false;
+        }
+        
+        SQLiteDatabase db = null;
+        Cursor cursor = null;
+        try {
+            db = this.getReadableDatabase();
+            
+            cursor = db.query(
+                TABLE_ENCRYPTION_KEYS,
+                new String[]{COLUMN_FRIEND_UID},
+                COLUMN_ENCRYPTION_KEY + " = ?",
+                new String[]{encryptionKey},
+                null, null, null
+            );
+            
+            boolean exists = cursor != null && cursor.moveToFirst();
+            if (exists) {
+                Log.w(TAG, "Encryption key collision detected");
+            }
+            return exists;
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking key existence: " + e.getMessage());
+            return false;
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+            // Don't close the database - let it be managed by the system
+        }
+    }
+    
+    /**
      * Clears all encryption keys (use with caution)
      * @return true if successful, false otherwise
      */
