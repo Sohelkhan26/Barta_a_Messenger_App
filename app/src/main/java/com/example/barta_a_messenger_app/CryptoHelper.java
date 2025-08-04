@@ -18,6 +18,7 @@ public class CryptoHelper {
 
     private static final String ALGORITHM = "AES";
     private static final String TRANSFORMATION = "AES/ECB/PKCS7Padding";
+    private static final String FALLBACK_KEY = "H@rrY_p0tter_106"; // Keep as fallback for old messages
 
     public static String encrypt(String key, String data) throws Exception {
         SecretKeySpec secretKey = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), ALGORITHM);
@@ -38,5 +39,33 @@ public class CryptoHelper {
 
         byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
         return new String(decryptedBytes, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Encrypts data using the fallback key for compatibility with old messages
+     * @param data The data to encrypt
+     * @return Encrypted data
+     * @throws Exception if encryption fails
+     */
+    public static String encryptWithFallbackKey(String data) throws Exception {
+        return encrypt(FALLBACK_KEY, data);
+    }
+
+    /**
+     * Decrypts data using the fallback key for compatibility with old messages
+     * @param encryptedData The encrypted data to decrypt
+     * @return Decrypted data
+     * @throws Exception if decryption fails
+     */
+    public static String decryptWithFallbackKey(String encryptedData) throws Exception {
+        return decrypt(FALLBACK_KEY, encryptedData);
+    }
+
+    /**
+     * Gets the fallback encryption key
+     * @return The fallback key
+     */
+    public static String getFallbackKey() {
+        return FALLBACK_KEY;
     }
 }

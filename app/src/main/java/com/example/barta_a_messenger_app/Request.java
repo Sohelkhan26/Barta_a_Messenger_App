@@ -6,6 +6,7 @@ public class Request {
     private String senderUid;
     private String receiverUid;
     private String status;
+    private String encryptionKey; // New field for encryption key
 
     public Request() {
     }
@@ -16,6 +17,15 @@ public class Request {
         this.senderUid = senderUid;
         this.receiverUid = receiverUid;
         this.status = status;
+    }
+
+    public Request(String name, String phone, String senderUid, String receiverUid, String status, String encryptionKey) {
+        this.name = name;
+        this.phone = phone;
+        this.senderUid = senderUid;
+        this.receiverUid = receiverUid;
+        this.status = status;
+        this.encryptionKey = encryptionKey;
     }
 
     public String getPhone() {
@@ -56,5 +66,13 @@ public class Request {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getEncryptionKey() {
+        return encryptionKey;
+    }
+
+    public void setEncryptionKey(String encryptionKey) {
+        this.encryptionKey = encryptionKey;
     }
 }

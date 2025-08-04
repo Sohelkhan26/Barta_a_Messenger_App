@@ -1,6 +1,7 @@
 package com.example.barta_a_messenger_app;
 
 import android.os.Bundle;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -93,6 +94,22 @@ public class friendRequestFragment extends Fragment implements FriendRequestAdap
 
     @Override
     public void onAcceptClicked(Request request) {
+        // Store the encryption key from the friend request
+        EncryptionKeyManager keyManager = new EncryptionKeyManager(getContext());
+        
+        if (request.getEncryptionKey() != null && !request.getEncryptionKey().isEmpty()) {
+            boolean keyStored = keyManager.storeEncryptionKey(request.getSenderUid(), request.getEncryptionKey());
+            if (!keyStored) {
+                Toast.makeText(getContext(), "Failed to store encryption key", Toast.LENGTH_SHORT).show();
+                keyManager.close();
+                return;
+            }
+        } else {
+            Toast.makeText(getContext(), "No encryption key received with friend request", Toast.LENGTH_SHORT).show();
+            keyManager.close();
+            return;
+        }
+        
         DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(request.getSenderUid());
         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -108,14 +125,14 @@ public class friendRequestFragment extends Fragment implements FriendRequestAdap
 
                 contactsRef.setValue(new Contact(request.getName(), request.getPhone(), request.getSenderUid(), "","","",new Date().getTime(),"",""));
 
-
                 adapter.notifyDataSetChanged();
                 friendRequest.clear();
+                keyManager.close();
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-
+                keyManager.close();
             }
         });
 
@@ -144,13 +161,11 @@ public class friendRequestFragment extends Fragment implements FriendRequestAdap
             }
         });
 
-
         DatabaseReference friendRequestsRef = FirebaseDatabase.getInstance().getReference("FriendRequestPending")
                 .child(request.getReceiverUid())
                 .child(request.getSenderUid());
 
         friendRequestsRef.removeValue();
-
     }
 
     @Override

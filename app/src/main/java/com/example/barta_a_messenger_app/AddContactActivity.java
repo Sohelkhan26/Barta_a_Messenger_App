@@ -137,14 +137,31 @@ public class AddContactActivity extends AppCompatActivity {
 //        name.setText("");
 //        phone_number.setText("");
 
-        Request request = new Request("", phone, uid, contact_uid, "pending");
+        // Generate encryption key for this new friend
+        EncryptionKeyManager keyManager = new EncryptionKeyManager(this);
+        String encryptionKey = keyManager.generateAndStoreKeyForNewFriend(contact_uid);
+        
+        if (encryptionKey == null) {
+            Toast.makeText(this, "Failed to generate encryption key", Toast.LENGTH_SHORT).show();
+            keyManager.close();
+            return;
+        }
 
-        databaseReference.child("FriendRequestPending").child(contact_uid).child(uid).setValue(request);
+        // Create request with encryption key
+        Request request = new Request("", phone, uid, contact_uid, "pending", encryptionKey);
 
-        phone_number.setText("");
-
-        Toast.makeText(this, "Friend request sent", Toast.LENGTH_SHORT).show();
-
+        databaseReference.child("FriendRequestPending").child(contact_uid).child(uid).setValue(request)
+            .addOnSuccessListener(aVoid -> {
+                phone_number.setText("");
+                Toast.makeText(this, "Friend request sent with secure encryption", Toast.LENGTH_SHORT).show();
+                keyManager.close();
+            })
+            .addOnFailureListener(e -> {
+                Toast.makeText(this, "Failed to send friend request", Toast.LENGTH_SHORT).show();
+                // Remove the stored key if request failed
+                keyManager.removeEncryptionKey(contact_uid);
+                keyManager.close();
+            });
     }
 
 }

@@ -24,6 +24,7 @@ import android.media.Image;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 
 import android.view.View;
 
@@ -63,9 +64,6 @@ import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.UploadTask;
 import com.squareup.picasso.Picasso;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -83,7 +81,6 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     private static final int REQUEST_CODE_OPEN_DOCUMENT = 2;
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
     private static final int REQUEST_CODE_FORWARD_CONTACTS = 300;
-    private static final Log log = LogFactory.getLog(InboxActivity.class);
     TextView userName;
     Scope ACCESS_DRIVE_SCOPE = new Scope(Scopes.DRIVE_FILE);
     Scope SCOPE_EMAIL = new Scope(Scopes.EMAIL);
@@ -207,10 +204,24 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                         message.setMessageId(snapshot1.getKey());
                         message.setIsNotified("yes");
 
+                        // Use dynamic decryption key for this friend
+                        EncryptionKeyManager keyManager = new EncryptionKeyManager(InboxActivity.this);
+                        
                         try {
-                            decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106", message.getMessage());
+                            // Try to decrypt with friend-specific key first
+                            decryptedmessage = keyManager.decryptFromFriend(receiverId, message.getMessage());
+                            
+                            // If friend-specific key not found, use fallback key for compatibility
+                            if (decryptedmessage == null) {
+                                decryptedmessage = CryptoHelper.decryptWithFallbackKey(message.getMessage());
+                                Log.w("InboxActivity", "Using fallback decryption for receiver: " + receiverId);
+                            }
+                            
+                            keyManager.close();
                         } catch (Exception e) {
-                            throw new RuntimeException(e);
+                            Log.e("InboxActivity", "Decryption failed: " + e.getMessage());
+                            decryptedmessage = "[Encrypted Message - Cannot Decrypt]";
+                            keyManager.close();
                         }
 
                         message.setMessage(decryptedmessage);
@@ -258,10 +269,23 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                                             if (ds.exists()) {
                                                 messageSenderName = ds.child("username").getValue(String.class);
 
+                                                // Use dynamic decryption for notifications
+                                                EncryptionKeyManager keyManager = new EncryptionKeyManager(InboxActivity.this);
+                                                
                                                 try {
-                                                    decryptedmessagenotification = CryptoHelper.decrypt("H@rrY_p0tter_106", message.getMessage());
+                                                    // Try to decrypt with friend-specific key first
+                                                    decryptedmessagenotification = keyManager.decryptFromFriend(message.getUid(), message.getMessage());
+                                                    
+                                                    // If friend-specific key not found, use fallback key for compatibility
+                                                    if (decryptedmessagenotification == null) {
+                                                        decryptedmessagenotification = CryptoHelper.decryptWithFallbackKey(message.getMessage());
+                                                    }
+                                                    
+                                                    keyManager.close();
                                                 } catch (Exception e) {
-                                                    throw new RuntimeException(e);
+                                                    Log.e("InboxActivity", "Notification decryption failed: " + e.getMessage());
+                                                    decryptedmessagenotification = "New message";
+                                                    keyManager.close();
                                                 }
 
                                                 if (message.getMessageType().equals("img")) {
@@ -306,10 +330,20 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             public void onClick(View view) {
                 String message = inputMessage.getText().toString();
                 if (!message.isEmpty()) {
-
+                    // Use dynamic encryption key for this friend
+                    EncryptionKeyManager keyManager = new EncryptionKeyManager(InboxActivity.this);
+                    
                     try {
-                        encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", message);
-
+                        // Try to encrypt with friend-specific key first
+                        encryptedMessage = keyManager.encryptForFriend(receiverId, message);
+                        
+                        // If friend-specific key not found, use fallback key for compatibility
+                        if (encryptedMessage == null) {
+                            encryptedMessage = CryptoHelper.encryptWithFallbackKey(message);
+                            Log.w("InboxActivity", "Using fallback encryption for receiver: " + receiverId);
+                        }
+                        
+                        keyManager.close();
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -719,9 +753,21 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                         String downloadUrl = "https://drive.google.com/uc?id=" + fileId;  // Construct the download URL
 
                         // Encrypt the download URL before saving it in the message
+                        EncryptionKeyManager keyManager = new EncryptionKeyManager(InboxActivity.this);
+                        
                         try {
-                            encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", downloadUrl);
+                            // Try to encrypt with friend-specific key first
+                            encryptedMessage = keyManager.encryptForFriend(receiverId, downloadUrl);
+                            
+                            // If friend-specific key not found, use fallback key for compatibility
+                            if (encryptedMessage == null) {
+                                encryptedMessage = CryptoHelper.encryptWithFallbackKey(downloadUrl);
+                                Log.w("InboxActivity", "Using fallback encryption for image upload to receiver: " + receiverId);
+                            }
+                            
+                            keyManager.close();
                         } catch (Exception e) {
+                            keyManager.close();
                             throw new RuntimeException(e);
                         }
 
@@ -833,9 +879,21 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                         String fileUrl = "https://drive.google.com/uc?id=" + fileId; // Construct the file URL
 
                         // Encrypt the file URL before saving it to the database
+                        EncryptionKeyManager keyManager = new EncryptionKeyManager(InboxActivity.this);
+                        
                         try {
-                            encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", fileUrl);
+                            // Try to encrypt with friend-specific key first
+                            encryptedMessage = keyManager.encryptForFriend(receiverId, fileUrl);
+                            
+                            // If friend-specific key not found, use fallback key for compatibility
+                            if (encryptedMessage == null) {
+                                encryptedMessage = CryptoHelper.encryptWithFallbackKey(fileUrl);
+                                Log.w("InboxActivity", "Using fallback encryption for file upload to receiver: " + receiverId);
+                            }
+                            
+                            keyManager.close();
                         } catch (Exception e) {
+                            keyManager.close();
                             throw new RuntimeException(e);
                         }
 
@@ -1071,8 +1129,20 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             try {
                 android.util.Log.d("ForwardDebug", "Forwarding message to UID: " + recipientUID);
 
-                // মেসেজ এনক্রিপ্ট করা
-                String encryptedMsg = CryptoHelper.encrypt("H@rrY_p0tter_106", message.getMessage());
+                // Encrypt message with recipient's specific key
+                EncryptionKeyManager keyManager = new EncryptionKeyManager(InboxActivity.this);
+                String tempEncryptedMsg = keyManager.encryptForFriend(recipientUID, message.getMessage());
+                
+                // If friend-specific key not found, use fallback key for compatibility
+                final String encryptedMsg;
+                if (tempEncryptedMsg == null) {
+                    encryptedMsg = CryptoHelper.encryptWithFallbackKey(message.getMessage());
+                    Log.w("InboxActivity", "Using fallback encryption for forwarding to recipient: " + recipientUID);
+                } else {
+                    encryptedMsg = tempEncryptedMsg;
+                }
+                
+                keyManager.close();
 
                 // Firebase এ সেভ করার জন্য কী জেনারেট করা
                 String key = database.getReference().child("chats")
@@ -1497,9 +1567,21 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                         String downloadUrl = "https://drive.google.com/uc?id=" + fileId;
 
                         // Encrypt the download URL
+                        EncryptionKeyManager keyManager = new EncryptionKeyManager(InboxActivity.this);
+                        
                         try {
-                            encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", downloadUrl);
+                            // Try to encrypt with friend-specific key first
+                            encryptedMessage = keyManager.encryptForFriend(receiverId, downloadUrl);
+                            
+                            // If friend-specific key not found, use fallback key for compatibility
+                            if (encryptedMessage == null) {
+                                encryptedMessage = CryptoHelper.encryptWithFallbackKey(downloadUrl);
+                                Log.w("InboxActivity", "Using fallback encryption for voice message upload to receiver: " + receiverId);
+                            }
+                            
+                            keyManager.close();
                         } catch (Exception e) {
+                            keyManager.close();
                             throw new RuntimeException(e);
                         }
 

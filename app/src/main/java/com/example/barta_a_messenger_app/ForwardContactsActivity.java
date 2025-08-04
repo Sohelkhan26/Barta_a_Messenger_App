@@ -334,8 +334,20 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
         try {
             Log.d("ForwardContacts", "Forwarding message to UID: " + recipientUID);
 
-            // Encrypt message
-            String encryptedMsg = CryptoHelper.encrypt("H@rrY_p0tter_106", message.getMessage());
+            // Encrypt message with recipient's specific key
+            EncryptionKeyManager keyManager = new EncryptionKeyManager(this);
+            String tempEncryptedMsg = keyManager.encryptForFriend(recipientUID, message.getMessage());
+            
+            // If friend-specific key not found, use fallback key for compatibility
+            final String encryptedMsg;
+            if (tempEncryptedMsg == null) {
+                encryptedMsg = CryptoHelper.encryptWithFallbackKey(message.getMessage());
+                Log.w("ForwardContacts", "Using fallback encryption for forwarding to recipient: " + recipientUID);
+            } else {
+                encryptedMsg = tempEncryptedMsg;
+            }
+            
+            keyManager.close();
 
             // Generate key for Firebase
             String key = database.child("chats")
