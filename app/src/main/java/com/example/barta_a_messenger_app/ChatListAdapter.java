@@ -41,22 +41,31 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
         holder.contact_name.setText(contact.getFull_name());
 
         try {
-            decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106", contact.getLast_message());
+            String lastMessage = contact.getLast_message();
+            if (lastMessage != null && !lastMessage.isEmpty()) {
+                decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106", lastMessage);
+            } else {
+                decryptedmessage = "";
+            }
         } catch (Exception e) {
             Log.d("ChatListAdapter ", e.getMessage());
+            decryptedmessage = "";
         }
 
-        if (contact.getLast_message().equals("")) {
+        String lastMessage = contact.getLast_message();
+        if (lastMessage == null || lastMessage.equals("")) {
             holder.contact_phone.setText("");
         } else {
-            if (contact.getLast_sender_name().equals("You")) {
-                holder.contact_phone.setText(contact.getLast_sender_name() + " : " + decryptedmessage);
+            String lastSenderName = contact.getLast_sender_name();
+            if (lastSenderName != null && lastSenderName.equals("You")) {
+                holder.contact_phone.setText(lastSenderName + " : " + decryptedmessage);
             } else {
                 holder.contact_phone.setText(decryptedmessage);
             }
         }
 
-        if (contact.getLast_message_seen().equals("false")) {
+        String lastMessageSeen = contact.getLast_message_seen();
+        if (lastMessageSeen != null && lastMessageSeen.equals("false")) {
             holder.contact_phone.setTypeface(null, Typeface.BOLD);
         } else {
             holder.contact_phone.setTypeface(null, Typeface.NORMAL);
@@ -72,7 +81,7 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
             // Handle the case where the URL is empty or null
         }
 
-        if (status.equals("active")) {
+        if (status != null && status.equals("active")) {
             holder.active_status.setVisibility(View.VISIBLE); // Set the online status indicator to visible
         } else {
             holder.active_status.setVisibility(View.INVISIBLE); // Set the online status indicator to invisible
@@ -118,7 +127,15 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
                     Intent intent = new Intent(c, InboxActivity.class);
                     int position = getAdapterPosition();
                     Contact contact = list.get(position);
-                    intent.putExtra("uid", contact.getUid());
+                    
+                    // Add null check for contact uid
+                    String contactUid = contact.getUid();
+                    if (contactUid == null || contactUid.isEmpty()) {
+                        Log.e("ChatListAdapter", "Contact UID is null or empty, cannot open chat");
+                        return; // Don't start activity if UID is null
+                    }
+                    
+                    intent.putExtra("uid", contactUid);
                     intent.putExtra("name", contact.getFull_name());
                     intent.putExtra("profilePic", contact.getProfilePic());
                     intent.putExtra("status", contact.getStatus());

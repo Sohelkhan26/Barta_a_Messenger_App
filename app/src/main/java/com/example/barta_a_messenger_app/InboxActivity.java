@@ -159,8 +159,28 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         database = FirebaseDatabase.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
+        // Check if user is authenticated
+        if (mAuth.getCurrentUser() == null) {
+            Log.e("InboxActivity", "User not authenticated");
+            finish(); // Close activity if user not authenticated
+            return;
+        }
+
         senderId = mAuth.getCurrentUser().getUid();
         receiverId = getIntent().getStringExtra("uid");
+
+        // Add null checks before proceeding
+        if (senderId == null) {
+            Log.e("InboxActivity", "SenderId is null - user not authenticated");
+            finish(); // Close activity if user not authenticated
+            return;
+        }
+
+        if (receiverId == null || receiverId.isEmpty()) {
+            Log.e("InboxActivity", "ReceiverId is null or empty - missing intent extra");
+            finish(); // Close activity if receiverId is missing
+            return;
+        }
 
         database.getReference().child("user").child(senderId)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
