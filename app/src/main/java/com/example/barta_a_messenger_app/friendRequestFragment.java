@@ -59,17 +59,29 @@ public class friendRequestFragment extends Fragment implements FriendRequestAdap
         friendRequestsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-
+                friendRequest.clear(); // Clear the list once at the beginning
+                
                 for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
-                    friendRequest.clear();
                     Request request = dataSnapshot.getValue(Request.class);
+                    if (request == null || request.getSenderUid() == null) {
+                        continue; // Skip invalid requests
+                    }
 
                     DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("user").child(request.getSenderUid());
                     userRef.addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot snapshot) {
                             String username = snapshot.child("username").getValue(String.class);
-                            request.setName(username);
+                            String senderPhone = snapshot.child("phone").getValue(String.class);
+                            
+                            // Set sender's information
+                            if (username != null) {
+                                request.setName(username);
+                            }
+                            if (senderPhone != null) {
+                                request.setPhone(senderPhone); // Set sender's phone number instead of receiver's
+                            }
+                            
                             friendRequest.add(request);
                             adapter.notifyDataSetChanged();
 
@@ -77,7 +89,7 @@ public class friendRequestFragment extends Fragment implements FriendRequestAdap
 
                         @Override
                         public void onCancelled(@NonNull DatabaseError error) {
-
+                            Log.e("FriendRequest", "Error loading sender data: " + error.getMessage());
                         }
                     });
 

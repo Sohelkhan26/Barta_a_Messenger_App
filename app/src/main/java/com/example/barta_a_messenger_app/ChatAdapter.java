@@ -53,103 +53,191 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public ChatAdapter(ArrayList<MessageModel> messageModels, Context context) {
-        this.messageModels = messageModels;
-        this.context = context;
+        try {
+            if (messageModels == null) {
+                this.messageModels = new ArrayList<>();
+                android.util.Log.w("ChatAdapter", "messageModels was null, initialized empty list");
+            } else {
+                this.messageModels = messageModels;
+            }
+            
+            if (context == null) {
+                android.util.Log.e("ChatAdapter", "Context is null in constructor");
+                throw new IllegalArgumentException("Context cannot be null");
+            }
+            this.context = context;
+        } catch (Exception e) {
+            android.util.Log.e("ChatAdapter", "Error in constructor: " + e.getMessage());
+            throw e;
+        }
     }
 
     public ChatAdapter(ArrayList<MessageModel> messageModels, Context context, String recId) {
-        this.messageModels = messageModels;
-        this.context = context;
-        this.recId = recId;
+        try {
+            if (messageModels == null) {
+                this.messageModels = new ArrayList<>();
+                android.util.Log.w("ChatAdapter", "messageModels was null, initialized empty list");
+            } else {
+                this.messageModels = messageModels;
+            }
+            
+            if (context == null) {
+                android.util.Log.e("ChatAdapter", "Context is null in constructor");
+                throw new IllegalArgumentException("Context cannot be null");
+            }
+            this.context = context;
+            this.recId = recId;
 
-        if (context instanceof OnMessageSelectListener) {
-            this.messageSelectListener = (OnMessageSelectListener) context;
+            if (context instanceof OnMessageSelectListener) {
+                this.messageSelectListener = (OnMessageSelectListener) context;
+            }
+        } catch (Exception e) {
+            android.util.Log.e("ChatAdapter", "Error in constructor: " + e.getMessage());
+            throw e;
         }
     }
 
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        if (viewType == SENDER_VIEW_TYPE) {
-            View view = LayoutInflater.from(context).inflate(R.layout.sample_sender, parent, false);
-            return new SenderViewHolder(view);
-        } else {
-            View view = LayoutInflater.from(context).inflate(R.layout.sample_receiver, parent, false);
-            return new ReceiverViewHolder(view);
+        try {
+            if (parent == null || context == null) {
+                android.util.Log.e("ChatAdapter", "Parent or context is null in onCreateViewHolder");
+                throw new IllegalStateException("Parent or context cannot be null");
+            }
+            
+            if (viewType == SENDER_VIEW_TYPE) {
+                View view = LayoutInflater.from(context).inflate(R.layout.sample_sender, parent, false);
+                return new SenderViewHolder(view);
+            } else {
+                View view = LayoutInflater.from(context).inflate(R.layout.sample_receiver, parent, false);
+                return new ReceiverViewHolder(view);
+            }
+        } catch (Exception e) {
+            android.util.Log.e("ChatAdapter", "Error in onCreateViewHolder: " + e.getMessage());
+            // Fallback to a default view to prevent crash
+            View fallbackView = new View(context);
+            return new RecyclerView.ViewHolder(fallbackView) {};
         }
     }
 
     @Override
     public int getItemViewType(int position) {
-        if (messageModels.get(position).getUid().equals(FirebaseAuth.getInstance().getUid())) {
-            return SENDER_VIEW_TYPE;
-        } else {
-            return RECEIVER_VIEW_TYPE;
+        try {
+            // Validate position and messageModels
+            if (messageModels == null || position < 0 || position >= messageModels.size()) {
+                android.util.Log.w("ChatAdapter", "Invalid position or null messageModels in getItemViewType");
+                return RECEIVER_VIEW_TYPE; // Default to receiver type
+            }
+            
+            MessageModel messageModel = messageModels.get(position);
+            if (messageModel == null || messageModel.getUid() == null) {
+                android.util.Log.w("ChatAdapter", "Null message model or UID in getItemViewType");
+                return RECEIVER_VIEW_TYPE; // Default to receiver type
+            }
+            
+            // Check if Firebase user is available
+            if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+                android.util.Log.w("ChatAdapter", "No authenticated user in getItemViewType, defaulting to receiver");
+                return RECEIVER_VIEW_TYPE; // Default to receiver type when no user
+            }
+            
+            String currentUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+            if (currentUid == null) {
+                android.util.Log.w("ChatAdapter", "Current user UID is null in getItemViewType");
+                return RECEIVER_VIEW_TYPE; // Default to receiver type
+            }
+            
+            if (messageModel.getUid().equals(currentUid)) {
+                return SENDER_VIEW_TYPE;
+            } else {
+                return RECEIVER_VIEW_TYPE;
+            }
+        } catch (Exception e) {
+            android.util.Log.e("ChatAdapter", "Error in getItemViewType: " + e.getMessage());
+            return RECEIVER_VIEW_TYPE; // Safe default
         }
     }
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-        MessageModel messageModel = messageModels.get(position);
-
-        if (messageModel.getMessageType() == null || messageModel.getMessageType().equals("msg")) {
-            if (holder.getClass() == SenderViewHolder.class) {
-                ((SenderViewHolder) holder).sentImage.setVisibility(View.GONE);
-                ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
-                ((SenderViewHolder) holder).senderMsg.setVisibility(View.VISIBLE);
-                ((SenderViewHolder) holder).senderMsg.setText(messageModel.getMessage());
-                ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
-
-                if (messageModel.isGroupMessage()) {
-                    ((SenderViewHolder) holder).senderName.setVisibility(View.VISIBLE);
-                    ((SenderViewHolder) holder).senderName.setText(messageModel.getSenderName());
-                } else {
-                    ((SenderViewHolder) holder).senderName.setVisibility(View.GONE);
-                }
-            } else {
-                ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.GONE);
-                ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.GONE);
-                ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.VISIBLE);
-                ((ReceiverViewHolder) holder).receiverMsg.setText(messageModel.getMessage());
-                ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
-
-                if (messageModel.isGroupMessage()) {
-                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.VISIBLE);
-                    ((ReceiverViewHolder) holder).receiverName.setText(messageModel.getSenderName());
-                } else {
-                    ((ReceiverViewHolder) holder).receiverName.setVisibility(View.GONE);
-                }
+        try {
+            // Validate inputs to prevent crashes during authentication changes
+            if (holder == null || messageModels == null || position < 0 || position >= messageModels.size()) {
+                android.util.Log.w("ChatAdapter", "Invalid parameters in onBindViewHolder");
+                return;
             }
-        } else if (messageModel.getMessageType().equals("img")) {
-            if (holder.getClass() == SenderViewHolder.class) {
-                ((SenderViewHolder) holder).senderMsg.setVisibility(View.GONE);
-                ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
-                ((SenderViewHolder) holder).sentImage.setVisibility(View.VISIBLE);
-                
-                // Decrypt image URL before loading
-                try {
-                    String imageUrl = decryptFileUrl(context, messageModel, messageModel.getMessage());
-                    if (imageUrl != null && !imageUrl.equals(messageModel.getMessage()) && !imageUrl.isEmpty()) {
-                        // Successfully decrypted to a different URL
-                        Picasso.get().load(imageUrl).into(((SenderViewHolder) holder).sentImage);
-                        android.util.Log.d("ImageDecrypt", "Loaded decrypted image URL");
+            
+            MessageModel messageModel = messageModels.get(position);
+            if (messageModel == null) {
+                android.util.Log.w("ChatAdapter", "Message model is null at position: " + position);
+                return;
+            }
+            
+            // Check Firebase auth state before proceeding
+            if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+                android.util.Log.w("ChatAdapter", "No authenticated user in onBindViewHolder, skipping bind");
+                return;
+            }
+
+            if (messageModel.getMessageType() == null || messageModel.getMessageType().equals("msg")) {
+                if (holder.getClass() == SenderViewHolder.class) {
+                    ((SenderViewHolder) holder).sentImage.setVisibility(View.GONE);
+                    ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
+                    ((SenderViewHolder) holder).senderMsg.setVisibility(View.VISIBLE);
+                    ((SenderViewHolder) holder).senderMsg.setText(messageModel.getMessage());
+                    ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+
+                    if (messageModel.isGroupMessage()) {
+                        ((SenderViewHolder) holder).senderName.setVisibility(View.VISIBLE);
+                        ((SenderViewHolder) holder).senderName.setText(messageModel.getSenderName());
                     } else {
-                        // Either decryption failed or URL was already decrypted, try loading directly
-                        String originalUrl = messageModel.getMessage();
-                        if (originalUrl != null && !originalUrl.isEmpty()) {
-                            Picasso.get().load(originalUrl).into(((SenderViewHolder) holder).sentImage);
-                            android.util.Log.d("ImageDecrypt", "Loaded original image URL");
-                        } else {
-                            android.util.Log.w("ImageDecrypt", "Empty image URL, skipping load");
-                        }
+                        ((SenderViewHolder) holder).senderName.setVisibility(View.GONE);
                     }
-                } catch (Exception e) {
-                    android.util.Log.e("ImageDecrypt", "Error loading image: " + e.getMessage());
-                    // Try to load original URL as last resort
+                } else {
+                    ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.GONE);
+                    ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.GONE);
+                    ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.VISIBLE);
+                    ((ReceiverViewHolder) holder).receiverMsg.setText(messageModel.getMessage());
+                    ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
+
+                    if (messageModel.isGroupMessage()) {
+                        ((ReceiverViewHolder) holder).receiverName.setVisibility(View.VISIBLE);
+                        ((ReceiverViewHolder) holder).receiverName.setText(messageModel.getSenderName());
+                    } else {
+                        ((ReceiverViewHolder) holder).receiverName.setVisibility(View.GONE);
+                    }
+                }
+            } else if (messageModel.getMessageType().equals("img")) {
+                if (holder.getClass() == SenderViewHolder.class) {
+                    ((SenderViewHolder) holder).senderMsg.setVisibility(View.GONE);
+                    ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
+                    ((SenderViewHolder) holder).sentImage.setVisibility(View.VISIBLE);
+                    
+                    // Decrypt image URL before loading
                     try {
-                        String originalUrl = messageModel.getMessage();
-                        if (originalUrl != null && !originalUrl.isEmpty()) {
-                            Picasso.get().load(originalUrl).into(((SenderViewHolder) holder).sentImage);
+                        String imageUrl = decryptFileUrl(context, messageModel, messageModel.getMessage());
+                        if (imageUrl != null && !imageUrl.equals(messageModel.getMessage()) && !imageUrl.isEmpty()) {
+                            // Successfully decrypted to a different URL
+                            Picasso.get().load(imageUrl).into(((SenderViewHolder) holder).sentImage);
+                            android.util.Log.d("ImageDecrypt", "Loaded decrypted image URL");
+                        } else {
+                            // Either decryption failed or URL was already decrypted, try loading directly
+                            String originalUrl = messageModel.getMessage();
+                            if (originalUrl != null && !originalUrl.isEmpty()) {
+                                Picasso.get().load(originalUrl).into(((SenderViewHolder) holder).sentImage);
+                                android.util.Log.d("ImageDecrypt", "Loaded original image URL");
+                            } else {
+                                android.util.Log.w("ImageDecrypt", "Empty image URL, skipping load");
+                            }
+                        }
+                    } catch (Exception e) {
+                        android.util.Log.e("ImageDecrypt", "Error loading image: " + e.getMessage());
+                        // Try to load original URL as last resort
+                        try {
+                            String originalUrl = messageModel.getMessage();
+                            if (originalUrl != null && !originalUrl.isEmpty()) {
+                                Picasso.get().load(originalUrl).into(((SenderViewHolder) holder).sentImage);
                         }
                     } catch (Exception ex) {
                         android.util.Log.e("ImageDecrypt", "Failed to load original image too: " + ex.getMessage());
@@ -281,6 +369,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         } else {
             holder.itemView.setBackgroundColor(Color.TRANSPARENT);
         }
+        } catch (Exception e) {
+            android.util.Log.e("ChatAdapter", "Error in onBindViewHolder: " + e.getMessage());
+            // Don't crash the app, just log the error
+        }
     }
 
     private void toggleMessageSelection(MessageModel message, View view) {
@@ -389,34 +481,49 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 return;
             }
             android.util.Log.d("FileDecrypt", "Final file URL: " + decryptedFileUrl);
+
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            Uri uri = Uri.parse(decryptedFileUrl);
+
+            if (messageModel.getMessageType().equals("pdf")) {
+                // Set MIME type for PDFs
+                intent.setDataAndType(uri, "application/pdf");
+            } else if (messageModel.getMessageType().equals("docx")) {
+                // Set MIME type for Word documents
+                intent.setDataAndType(uri, "application/msword");
+            } else if (messageModel.getMessageType().equals("img")) {
+                intent.setDataAndType(uri, "image/*");
+            } else {
+                intent.setDataAndType(uri, "*/*");
+            }
+
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+        } catch (Exception e) {
+            android.util.Log.e("ChatAdapter", "Error in openItem: " + e.getMessage());
+            Toast.makeText(context, "Error opening file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
-
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        Uri uri = Uri.parse(decryptedFileUrl);
-
-        if (messageModel.getMessageType().equals("pdf")) {
-            // Set MIME type for PDFs
-            intent.setDataAndType(uri, "application/pdf");
-        } else if (messageModel.getMessageType().equals("docx")) {
-            // Set MIME type for Word documents
-            intent.setDataAndType(uri, "application/msword");
-        } else if (messageModel.getMessageType().equals("img")) {
-            intent.setDataAndType(uri, "image/*");
-        } else {
-            intent.setDataAndType(uri, "*/*");
-        }
-
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        context.startActivity(intent);
     }
 
     private void playVoiceMessage(Context context, String voiceUrl) {
         try {
+            // Validate input parameters
+            if (context == null) {
+                android.util.Log.e("VoicePlayback", "Context is null");
+                return;
+            }
+            
+            if (voiceUrl == null || voiceUrl.isEmpty()) {
+                android.util.Log.e("VoicePlayback", "Voice URL is null or empty");
+                Toast.makeText(context, "Invalid voice message URL", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
             // First try to open in browser/external player as fallback
             if (voiceUrl.contains("drive.google.com")) {
                 // For Google Drive files, create a direct download link
                 String fileId = extractFileIdFromDriveUrl(voiceUrl);
-                if (fileId != null) {
+                if (fileId != null && !fileId.isEmpty()) {
                     String directUrl = "https://drive.google.com/uc?export=download&id=" + fileId;
                     playAudioFromUrl(context, directUrl);
                 } else {
@@ -478,6 +585,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private void playAudioFromUrl(Context context, String audioUrl) {
         try {
+            // Validate input parameters
+            if (context == null) {
+                android.util.Log.e("VoicePlayback", "Context is null in playAudioFromUrl");
+                return;
+            }
+            
+            if (audioUrl == null || audioUrl.isEmpty()) {
+                android.util.Log.e("VoicePlayback", "Audio URL is null or empty in playAudioFromUrl");
+                Toast.makeText(context, "Invalid audio URL", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
             MediaPlayer mediaPlayer = new MediaPlayer();
 
             // Set audio attributes for better compatibility
@@ -749,5 +868,48 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public void setOnMessageSelectListener(OnMessageSelectListener listener) {
         messageSelectListener = listener;
+    }
+    
+    /**
+     * Call this method when authentication state changes to refresh the adapter safely
+     */
+    public void onAuthStateChanged() {
+        try {
+            android.util.Log.d("ChatAdapter", "Authentication state changed, refreshing adapter");
+            // Clear selection mode to prevent issues
+            isSelectionMode = false;
+            selectedMessages.clear();
+            
+            // Notify adapter to refresh all views
+            notifyDataSetChanged();
+        } catch (Exception e) {
+            android.util.Log.e("ChatAdapter", "Error handling auth state change: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Update the receiver ID when account changes
+     */
+    public void updateReceiverId(String newRecId) {
+        try {
+            this.recId = newRecId;
+            android.util.Log.d("ChatAdapter", "Updated receiver ID to: " + (newRecId != null ? "***" : "null"));
+        } catch (Exception e) {
+            android.util.Log.e("ChatAdapter", "Error updating receiver ID: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Check if the adapter is in a valid state for operations
+     */
+    public boolean isValidState() {
+        try {
+            return context != null && 
+                   messageModels != null && 
+                   FirebaseAuth.getInstance().getCurrentUser() != null;
+        } catch (Exception e) {
+            android.util.Log.e("ChatAdapter", "Error checking adapter state: " + e.getMessage());
+            return false;
+        }
     }
 }

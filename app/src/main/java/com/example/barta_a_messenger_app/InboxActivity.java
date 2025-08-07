@@ -55,6 +55,7 @@ import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.File;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -118,6 +119,44 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     ChatAdapter chatAdapter;
     String messageSenderName, senderName;
 
+    // Authentication state listener to handle account switching
+    private FirebaseAuth.AuthStateListener authStateListener = new FirebaseAuth.AuthStateListener() {
+        @Override
+        public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+            try {
+                FirebaseUser user = firebaseAuth.getCurrentUser();
+                if (user == null) {
+                    // User logged out or authentication state changed
+                    Log.w("InboxActivity", "User authentication state changed - user is null");
+                    // Safely close the activity
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            finish();
+                        }
+                    });
+                } else {
+                    // User is authenticated, check if it's a different user
+                    String currentUserId = user.getUid();
+                    if (senderId != null && !senderId.equals(currentUserId)) {
+                        Log.w("InboxActivity", "User ID changed during session - refreshing adapter");
+                        // Update the adapter for the new user
+                        if (chatAdapter != null) {
+                            chatAdapter.onAuthStateChanged();
+                            if (receiverId != null) {
+                                chatAdapter.updateReceiverId(receiverId);
+                            }
+                        }
+                        // Update local sender ID
+                        senderId = currentUserId;
+                    }
+                }
+            } catch (Exception e) {
+                Log.e("InboxActivity", "Error in auth state listener: " + e.getMessage());
+            }
+        }
+    };
+
     String decryptedmessage, decryptedmessagenotification, encryptedMessage;
 
     ArrayList<MessageModel> selectedMessages;
@@ -169,6 +208,9 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         senderId = mAuth.getCurrentUser().getUid();
         receiverId = getIntent().getStringExtra("uid");
 
+        // Add authentication state listener to handle account switching
+        mAuth.addAuthStateListener(authStateListener);
+
         // Add null checks before proceeding
         if (senderId == null) {
             Log.e("InboxActivity", "SenderId is null - user not authenticated");
@@ -198,22 +240,29 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
         senderRoom = senderId + receiverId;
         receiverRoom = receiverId + senderId;
 
-        dbHelper.chat_table_name = "t_" + senderRoom;
-
         dbHelper = new DBHelper(this);
+        dbHelper.chat_table_name = "t_" + senderRoom;
 
         db = dbHelper.getWritableDatabase();
 
         localMessageModel = new ArrayList<>();
         localMessageModel = getAllMessages();
 
-        chatAdapter = new ChatAdapter(localMessageModel, this, receiverId);
+        try {
+            chatAdapter = new ChatAdapter(localMessageModel, this, receiverId);
+        } catch (Exception e) {
+            Log.e("InboxActivity", "Error creating ChatAdapter: " + e.getMessage());
+            // Create a fallback adapter to prevent crashes
+            chatAdapter = new ChatAdapter(new ArrayList<>(), this, receiverId);
+        }
 
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
         layoutManager.setStackFromEnd(true);
         chatRecyclerView.setLayoutManager(layoutManager);
 
-        chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+        if (localMessageModel != null && localMessageModel.size() > 0) {
+            chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+        }
 
         chatListener = new ValueEventListener() {
             @Override
@@ -248,9 +297,11 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
 
                         localMessageModel.add(message);
                         updateLocalDatabase(message);
-                        chatAdapter.notifyDataSetChanged();
+                        safeNotifyDataSetChanged();
 
-                        chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+                        if (localMessageModel.size() > 0) {
+                            chatRecyclerView.scrollToPosition(localMessageModel.size() - 1);
+                        }
                     }
 
                     database.getReference().child("Contacts").child(senderId)
@@ -620,6 +671,12 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        
+        // Remove authentication state listener to prevent memory leaks
+        if (mAuth != null && authStateListener != null) {
+            mAuth.removeAuthStateListener(authStateListener);
+        }
+        
         database.getReference().child("chats")
                 .child(senderId)
                 .child(receiverId).removeEventListener(chatListener);
@@ -1657,6 +1714,26 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
             progressDialog.dismiss();
             e.printStackTrace();
             Toast.makeText(getApplicationContext(), "Error during upload: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    /**
+     * Helper method to safely notify data set changed
+     */
+    private void safeNotifyDataSetChanged() {
+        try {
+            if (chatAdapter != null && chatAdapter.isValidState()) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        chatAdapter.notifyDataSetChanged();
+                    }
+                });
+            } else {
+                Log.w("InboxActivity", "ChatAdapter is null or in invalid state, skipping notifyDataSetChanged");
+            }
+        } catch (Exception e) {
+            Log.e("InboxActivity", "Error in safeNotifyDataSetChanged: " + e.getMessage());
         }
     }
 }
