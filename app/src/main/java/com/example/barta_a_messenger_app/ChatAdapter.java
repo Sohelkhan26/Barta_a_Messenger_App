@@ -489,7 +489,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 // Set MIME type for PDFs
                 intent.setDataAndType(uri, "application/pdf");
             } else if (messageModel.getMessageType().equals("docx")) {
-                // Set MIME type for Word documents
+                // Set MIME type for Word documents (modern .docx format)
+                intent.setDataAndType(uri, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            } else if (messageModel.getMessageType().equals("doc")) {
+                // Set MIME type for old Word documents (.doc format)
                 intent.setDataAndType(uri, "application/msword");
             } else if (messageModel.getMessageType().equals("img")) {
                 intent.setDataAndType(uri, "image/*");
