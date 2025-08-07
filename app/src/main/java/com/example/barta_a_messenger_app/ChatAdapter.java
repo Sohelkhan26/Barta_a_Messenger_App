@@ -125,7 +125,37 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 ((SenderViewHolder) holder).senderMsg.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).sentFile.setVisibility(View.GONE);
                 ((SenderViewHolder) holder).sentImage.setVisibility(View.VISIBLE);
-                Picasso.get().load(messageModel.getMessage()).into(((SenderViewHolder) holder).sentImage);
+                
+                // Decrypt image URL before loading
+                try {
+                    String imageUrl = decryptFileUrl(context, messageModel, messageModel.getMessage());
+                    if (imageUrl != null && !imageUrl.equals(messageModel.getMessage()) && !imageUrl.isEmpty()) {
+                        // Successfully decrypted to a different URL
+                        Picasso.get().load(imageUrl).into(((SenderViewHolder) holder).sentImage);
+                        android.util.Log.d("ImageDecrypt", "Loaded decrypted image URL");
+                    } else {
+                        // Either decryption failed or URL was already decrypted, try loading directly
+                        String originalUrl = messageModel.getMessage();
+                        if (originalUrl != null && !originalUrl.isEmpty()) {
+                            Picasso.get().load(originalUrl).into(((SenderViewHolder) holder).sentImage);
+                            android.util.Log.d("ImageDecrypt", "Loaded original image URL");
+                        } else {
+                            android.util.Log.w("ImageDecrypt", "Empty image URL, skipping load");
+                        }
+                    }
+                } catch (Exception e) {
+                    android.util.Log.e("ImageDecrypt", "Error loading image: " + e.getMessage());
+                    // Try to load original URL as last resort
+                    try {
+                        String originalUrl = messageModel.getMessage();
+                        if (originalUrl != null && !originalUrl.isEmpty()) {
+                            Picasso.get().load(originalUrl).into(((SenderViewHolder) holder).sentImage);
+                        }
+                    } catch (Exception ex) {
+                        android.util.Log.e("ImageDecrypt", "Failed to load original image too: " + ex.getMessage());
+                    }
+                }
+                
                 ((SenderViewHolder) holder).senderTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
 
                 if (messageModel.isGroupMessage()) {
@@ -138,7 +168,37 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 ((ReceiverViewHolder) holder).receiverMsg.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receivedFile.setVisibility(View.GONE);
                 ((ReceiverViewHolder) holder).receivedImage.setVisibility(View.VISIBLE);
-                Picasso.get().load(messageModel.getMessage()).into(((ReceiverViewHolder) holder).receivedImage);
+                
+                // Decrypt image URL before loading
+                try {
+                    String imageUrl = decryptFileUrl(context, messageModel, messageModel.getMessage());
+                    if (imageUrl != null && !imageUrl.equals(messageModel.getMessage()) && !imageUrl.isEmpty()) {
+                        // Successfully decrypted to a different URL
+                        Picasso.get().load(imageUrl).into(((ReceiverViewHolder) holder).receivedImage);
+                        android.util.Log.d("ImageDecrypt", "Loaded decrypted image URL");
+                    } else {
+                        // Either decryption failed or URL was already decrypted, try loading directly
+                        String originalUrl = messageModel.getMessage();
+                        if (originalUrl != null && !originalUrl.isEmpty()) {
+                            Picasso.get().load(originalUrl).into(((ReceiverViewHolder) holder).receivedImage);
+                            android.util.Log.d("ImageDecrypt", "Loaded original image URL");
+                        } else {
+                            android.util.Log.w("ImageDecrypt", "Empty image URL, skipping load");
+                        }
+                    }
+                } catch (Exception e) {
+                    android.util.Log.e("ImageDecrypt", "Error loading image: " + e.getMessage());
+                    // Try to load original URL as last resort
+                    try {
+                        String originalUrl = messageModel.getMessage();
+                        if (originalUrl != null && !originalUrl.isEmpty()) {
+                            Picasso.get().load(originalUrl).into(((ReceiverViewHolder) holder).receivedImage);
+                        }
+                    } catch (Exception ex) {
+                        android.util.Log.e("ImageDecrypt", "Failed to load original image too: " + ex.getMessage());
+                    }
+                }
+                
                 ((ReceiverViewHolder) holder).receiverTime.setText(new SimpleDateFormat("HH:mm a").format(new Date(messageModel.getTimestamp())));
 
                 if (messageModel.isGroupMessage()) {
@@ -285,46 +345,50 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     void openItem(Context context, MessageModel messageModel) {
-        String fileUrl = messageModel.getMessage();
-
-        if (messageModel.getMessageType().equals("voice")) {
-            // Check if URL is already decrypted (starts with https://)
-            if (fileUrl.startsWith("https://")) {
-                android.util.Log.d("VoicePlayback", "URL already decrypted: " + fileUrl);
-                playVoiceMessage(context, fileUrl);
-            } else {
-                // Try to decrypt voice message URL
-                try {
-                    android.util.Log.d("VoicePlayback", "Attempting to decrypt URL: " + fileUrl.substring(0, Math.min(50, fileUrl.length())) + "...");
-                    String decryptedUrl = CryptoHelper.decrypt("H@rrY_p0tter_106", fileUrl);
-                    android.util.Log.d("VoicePlayback", "Successfully decrypted voice URL: " + decryptedUrl);
-                    // Play voice message with decrypted URL
-                    playVoiceMessage(context, decryptedUrl);
-                } catch (Exception e) {
-                    android.util.Log.e("VoicePlayback", "Failed to decrypt voice URL: " + e.getMessage());
-                    android.util.Log.e("VoicePlayback", "Original URL length: " + fileUrl.length());
-
-                    // Try to play directly if decryption fails (for backward compatibility)
-                    android.util.Log.d("VoicePlayback", "Trying to play URL directly as fallback");
-                    playVoiceMessage(context, fileUrl);
-                }
-            }
-            return;
-        }
-
-        // Decrypt file URL for other file types
-        String decryptedFileUrl = fileUrl;
         try {
+            String fileUrl = messageModel.getMessage();
+            
+            // Validate message model and URL
+            if (messageModel == null || fileUrl == null || fileUrl.isEmpty()) {
+                android.util.Log.w("ChatAdapter", "Invalid message or empty URL");
+                Toast.makeText(context, "Cannot open empty file", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (messageModel.getMessageType().equals("voice")) {
+                // Check if URL is already decrypted (starts with https://)
+                if (fileUrl.startsWith("https://")) {
+                    android.util.Log.d("VoicePlayback", "URL already decrypted: " + fileUrl);
+                    playVoiceMessage(context, fileUrl);
+                } else {
+                    // Try to decrypt voice message URL using proper encryption key system
+                    String decryptedUrl = decryptFileUrl(context, messageModel, fileUrl);
+                    if (decryptedUrl != null && !decryptedUrl.isEmpty()) {
+                        playVoiceMessage(context, decryptedUrl);
+                    } else {
+                        // Try to play directly if decryption fails (for backward compatibility)
+                        android.util.Log.d("VoicePlayback", "Trying to play URL directly as fallback");
+                        playVoiceMessage(context, fileUrl);
+                    }
+                }
+                return;
+            }
+
+            // Decrypt file URL for other file types
+            String decryptedFileUrl = fileUrl;
             if (messageModel.getMessageType().equals("img")
                     || messageModel.getMessageType().equals("pdf")
                     || messageModel.getMessageType().equals("docx")) {
-                decryptedFileUrl = CryptoHelper.decrypt("H@rrY_p0tter_106", fileUrl);
-                android.util.Log.d("FileDecrypt", "Decrypted file URL: " + decryptedFileUrl);
+                decryptedFileUrl = decryptFileUrl(context, messageModel, fileUrl);
+                // decryptFileUrl now handles fallbacks internally, so we always get a valid URL
             }
-        } catch (Exception e) {
-            android.util.Log.e("FileDecrypt", "Failed to decrypt file URL: " + e.getMessage());
-            Toast.makeText(context, "Failed to decrypt file", Toast.LENGTH_SHORT).show();
-            return;
+
+            if (decryptedFileUrl == null || decryptedFileUrl.isEmpty()) {
+                android.util.Log.w("ChatAdapter", "Failed to decrypt file URL");
+                Toast.makeText(context, "Cannot open encrypted file", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            android.util.Log.d("FileDecrypt", "Final file URL: " + decryptedFileUrl);
         }
 
         Intent intent = new Intent(Intent.ACTION_VIEW);
@@ -333,7 +397,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (messageModel.getMessageType().equals("pdf")) {
             // Set MIME type for PDFs
             intent.setDataAndType(uri, "application/pdf");
-        } else if (messageModel.equals("docx")) {
+        } else if (messageModel.getMessageType().equals("docx")) {
             // Set MIME type for Word documents
             intent.setDataAndType(uri, "application/msword");
         } else if (messageModel.getMessageType().equals("img")) {
@@ -512,6 +576,126 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 Toast.makeText(context, "Error: " + ex.getMessage(), Toast.LENGTH_SHORT).show();
             }
         }
+    }
+
+    /**
+     * Decrypts a file URL using the appropriate encryption key based on the message sender
+     * @param context The context
+     * @param messageModel The message model containing sender information
+     * @param encryptedUrl The encrypted URL to decrypt
+     * @return The decrypted URL or original URL if decryption fails
+     */
+    private String decryptFileUrl(Context context, MessageModel messageModel, String encryptedUrl) {
+        try {
+            // Validate inputs
+            if (context == null || messageModel == null || encryptedUrl == null || encryptedUrl.isEmpty()) {
+                android.util.Log.w("FileDecrypt", "Invalid input parameters, returning original URL");
+                return encryptedUrl != null ? encryptedUrl : "";
+            }
+            
+            android.util.Log.d("FileDecrypt", "Attempting to decrypt URL for message from: " + messageModel.getUid());
+            android.util.Log.d("FileDecrypt", "URL preview: " + encryptedUrl.substring(0, Math.min(50, encryptedUrl.length())) + "...");
+            
+            // Check if URL is already decrypted (starts with https:// or http://)
+            if (encryptedUrl.startsWith("https://") || encryptedUrl.startsWith("http://")) {
+                android.util.Log.d("FileDecrypt", "URL already decrypted, returning as-is");
+                return encryptedUrl;
+            }
+            
+            // Check if the data looks like Base64 (basic validation)
+            if (!isValidBase64(encryptedUrl)) {
+                android.util.Log.w("FileDecrypt", "Data doesn't appear to be valid Base64, returning as-is");
+                return encryptedUrl;
+            }
+            
+            // Check if Firebase user is available
+            if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+                android.util.Log.w("FileDecrypt", "No authenticated user, returning original URL");
+                return encryptedUrl;
+            }
+            
+            // Get current user ID to determine the friend's ID for decryption
+            String currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+            String friendUid;
+            
+            // Validate UIDs
+            if (currentUserId == null || messageModel.getUid() == null) {
+                android.util.Log.w("FileDecrypt", "Invalid user IDs, returning original URL");
+                return encryptedUrl;
+            }
+            
+            // Determine which user is the friend (not the current user)
+            if (messageModel.getUid().equals(currentUserId)) {
+                // Message is from current user, friend is the receiver
+                friendUid = recId;
+            } else {
+                // Message is from the other user, they are the friend
+                friendUid = messageModel.getUid();
+            }
+            
+            // Validate friend UID
+            if (friendUid == null || friendUid.isEmpty()) {
+                android.util.Log.w("FileDecrypt", "Invalid friend UID, returning original URL");
+                return encryptedUrl;
+            }
+            
+            EncryptionKeyManager keyManager = null;
+            String decryptedUrl = null;
+            
+            try {
+                keyManager = new EncryptionKeyManager(context);
+                
+                // Try to decrypt with friend-specific key first
+                decryptedUrl = keyManager.decryptFromFriend(friendUid, encryptedUrl);
+                
+                // If friend-specific key not found, use fallback key for compatibility
+                if (decryptedUrl == null) {
+                    decryptedUrl = CryptoHelper.decryptWithFallbackKey(encryptedUrl);
+                    android.util.Log.w("ChatAdapter", "Using fallback decryption for file from: " + friendUid);
+                } else {
+                    android.util.Log.d("ChatAdapter", "Successfully decrypted file URL using friend-specific key");
+                }
+                
+            } catch (Exception e) {
+                android.util.Log.e("FileDecrypt", "Decryption failed: " + e.getMessage());
+                // If decryption fails, return the original URL as fallback
+                android.util.Log.w("FileDecrypt", "Returning original URL as fallback");
+                decryptedUrl = encryptedUrl;
+            } finally {
+                // Safely close the key manager
+                if (keyManager != null) {
+                    try {
+                        keyManager.close();
+                    } catch (Exception e) {
+                        android.util.Log.w("FileDecrypt", "Error closing key manager: " + e.getMessage());
+                    }
+                }
+            }
+            
+            return decryptedUrl != null ? decryptedUrl : encryptedUrl;
+            
+        } catch (Exception e) {
+            android.util.Log.e("FileDecrypt", "Failed to decrypt file URL: " + e.getMessage(), e);
+            // Return original URL as fallback for any unexpected errors
+            return encryptedUrl != null ? encryptedUrl : "";
+        }
+    }
+    
+    /**
+     * Basic validation to check if a string looks like Base64
+     * @param str The string to check
+     * @return true if it looks like Base64, false otherwise
+     */
+    private boolean isValidBase64(String str) {
+        if (str == null || str.isEmpty()) {
+            return false;
+        }
+        
+        // Base64 strings should only contain these characters
+        String base64Pattern = "^[A-Za-z0-9+/]*={0,2}$";
+        
+        // Check basic pattern and length (Base64 length should be multiple of 4)
+        return str.matches(base64Pattern) && str.length() % 4 == 0 && str.length() > 20;
     }
 
     public class SenderViewHolder extends RecyclerView.ViewHolder {
