@@ -38,24 +38,41 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
 
     public void onBindViewHolder(@NonNull ChatListAdapter.MyViewHolder holder, int position) {
         Contact contact = list.get(position);
-        holder.contact_name.setText(contact.getFull_name());
-
-        try {
-            String lastMessage = contact.getLast_message();
-            if (lastMessage != null && !lastMessage.isEmpty()) {
-                decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106", lastMessage);
-            } else {
-                decryptedmessage = "";
-            }
-        } catch (Exception e) {
-            Log.d("ChatListAdapter ", e.getMessage());
-            decryptedmessage = "";
-        }
+        
+        // Handle contact name
+        String contactName = contact.getFull_name();
+        holder.contact_name.setText(contactName != null ? contactName : "Unknown Contact");
 
         String lastMessage = contact.getLast_message();
+        Log.d("ChatListAdapter", "Contact: " + contact.getFull_name() + ", Last message: " + lastMessage);
+        
         if (lastMessage == null || lastMessage.equals("")) {
-            holder.contact_phone.setText("");
+            holder.contact_phone.setText("No messages yet");
         } else {
+            // Check if it's a special message type that doesn't need decryption
+            if (lastMessage.equals("sent an image")) {
+                decryptedmessage = "📷 Image";
+            } else if (lastMessage.equals("sent a voice message")) {
+                decryptedmessage = "🎤 Voice message";
+            } else if (lastMessage.equals("sent a file")) {
+                decryptedmessage = "📎 File";
+            } else {
+                // Try to decrypt regular text messages using the fallback key method
+                try {
+                    decryptedmessage = CryptoHelper.decryptWithFallbackKey(lastMessage);
+                    // If decryption results in empty string, show the original message
+                    if (decryptedmessage == null || decryptedmessage.isEmpty()) {
+                        decryptedmessage = lastMessage;
+                    }
+                } catch (Exception e) {
+                    Log.d("ChatListAdapter", "Decryption failed: " + e.getMessage());
+                    // If decryption fails, show a fallback message or the original
+                    decryptedmessage = lastMessage.length() > 50 ? "Message" : lastMessage;
+                }
+            }
+            
+            Log.d("ChatListAdapter", "Decrypted message: " + decryptedmessage);
+            
             String lastSenderName = contact.getLast_sender_name();
             if (lastSenderName != null && lastSenderName.equals("You")) {
                 holder.contact_phone.setText(lastSenderName + " : " + decryptedmessage);
@@ -74,11 +91,21 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
         String profilePicUrl = contact.getProfilePic();
         String status = contact.getStatus();
 
+        // Handle profile picture loading with error handling
         if (profilePicUrl != null && !profilePicUrl.isEmpty()) {
-
+            try {
+                Picasso.get()
+                    .load(profilePicUrl)
+                    .placeholder(R.drawable.profile_pic)
+                    .error(R.drawable.profile_pic)
+                    .into(holder.profile_pic);
+            } catch (Exception e) {
+                Log.d("ChatListAdapter", "Error loading profile picture: " + e.getMessage());
+                holder.profile_pic.setImageResource(R.drawable.profile_pic);
+            }
         } else {
-
-            // Handle the case where the URL is empty or null
+            // Set a default profile picture if URL is empty or null
+            holder.profile_pic.setImageResource(R.drawable.profile_pic);
         }
 
         if (status != null && status.equals("active")) {
@@ -86,15 +113,6 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
         } else {
             holder.active_status.setVisibility(View.INVISIBLE); // Set the online status indicator to invisible
         }
-
-//        Picasso.get().load(contact.getProfilePic()).into(holder.profile_pic);
-//        ImageView alertImageView = holder.itemView.findViewById(R.id.danger);
-//
-//        if (record.shouldShowAlert()) {
-//            alertImageView.setVisibility(View.VISIBLE);
-//        } else {
-//            alertImageView.setVisibility(View.INVISIBLE);
-//        }
     }
 
     public int getItemCount() {

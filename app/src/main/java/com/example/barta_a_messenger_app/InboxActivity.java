@@ -534,7 +534,16 @@ public class InboxActivity extends AppCompatActivity implements ChatAdapter.OnMe
                                 "application/rtf"
                             };
                             intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
-                            startActivityForResult(Intent.createChooser(intent, "Select Doc File"), 123);
+                            intent.addCategory(Intent.CATEGORY_OPENABLE);
+                            try {
+                                startActivityForResult(Intent.createChooser(intent, "Select Doc File"), 123);
+                            } catch (android.content.ActivityNotFoundException ex) {
+                                // No file manager found, try a more general approach
+                                Intent fallbackIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                                fallbackIntent.setType("*/*");
+                                fallbackIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                                startActivityForResult(Intent.createChooser(fallbackIntent, "Select File"), 123);
+                            }
                         }
                     }
                 });
