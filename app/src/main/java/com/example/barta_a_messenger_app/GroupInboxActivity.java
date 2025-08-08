@@ -19,6 +19,7 @@ import android.widget.Toast;
 import android.widget.Button;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.documentfile.provider.DocumentFile;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -62,6 +63,9 @@ import com.google.api.services.drive.model.File;
 
 import java.util.Collections;
 import java.util.Date;
+import java.util.UUID;
+
+import com.example.barta_a_messenger_app.CryptoHelper;
 
 public class GroupInboxActivity extends AppCompatActivity {
 
@@ -69,6 +73,7 @@ public class GroupInboxActivity extends AppCompatActivity {
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
     private static final int RC_AUTHORIZE_DRIVE = 10943;
     private static final int REQUEST_CODE_SIGN_IN = 1;
+    private static final int REQUEST_CODE_OPEN_DOCUMENT = 2;
 
     private TextView groupNameTextView;
     private RecyclerView chatRecyclerView;
@@ -88,7 +93,11 @@ public class GroupInboxActivity extends AppCompatActivity {
     private String voiceFileName;
     private boolean isRecording = false;
     private Uri voiceUri;
-    private String encryptedMessage;
+
+    // File upload variables
+    private String checker = "";
+    private Uri imagePath, fileUri;
+    private String imageUrl, fileUrl;
 
     // Google Drive variables
     private DriveServiceHelper driveServiceHelper;
@@ -188,7 +197,18 @@ public class GroupInboxActivity extends AppCompatActivity {
 
         // Setup RecyclerView
         messageList = new ArrayList<>();
-        chatAdapter = new ChatAdapter(messageList, this);
+        chatAdapter = new ChatAdapter(messageList, this, groupId);
+        chatAdapter.setOnMessageSelectListener(new ChatAdapter.OnMessageSelectListener() {
+            @Override
+            public void onMessageSelectModeActivated() {
+                // Handle message selection mode activation
+            }
+
+            @Override
+            public void onMessageSelected(ArrayList<MessageModel> messages) {
+                // Handle message selection
+            }
+        });
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
 
@@ -200,9 +220,42 @@ public class GroupInboxActivity extends AppCompatActivity {
             sendMessage();
         });
 
-        // Image send button click (you can implement this later)
+        // Image send button click
         imageSendButton.setOnClickListener(v -> {
-            // Implement image sending functionality
+            CharSequence options[] = new CharSequence[]{
+                "Images",
+                "PDF Files",
+                "MS Word Files"
+            };
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(GroupInboxActivity.this);
+            builder.setTitle("Select the File");
+
+            builder.setItems(options, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    if (i == 0) {
+                        checker = "image";
+                        Intent intent = new Intent();
+                        intent.setAction(Intent.ACTION_GET_CONTENT);
+                        intent.setType("image/*");
+                        startActivityForResult(intent.createChooser(intent, "Select Image"), 123);
+                    } else if (i == 1) {
+                        checker = "pdf";
+                        Intent intent = new Intent();
+                        intent.setAction(Intent.ACTION_GET_CONTENT);
+                        intent.setType("application/pdf");
+                        startActivityForResult(intent.createChooser(intent, "Select Pdf File"), 123);
+                    } else {
+                        checker = "doc";
+                        Intent intent = new Intent();
+                        intent.setAction(Intent.ACTION_GET_CONTENT);
+                        intent.setType("application/msword");
+                        startActivityForResult(Intent.createChooser(intent, "Select Doc File"), 123);
+                    }
+                }
+            });
+            builder.show();
         });
 
         // Voice send button click
@@ -246,6 +299,26 @@ public class GroupInboxActivity extends AppCompatActivity {
                         for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
                             MessageModel message = dataSnapshot.getValue(MessageModel.class);
                             if (message != null) {
+                                // For text messages, decrypt the content
+                                if (message.getMessageType() == null || message.getMessageType().equals("msg")) {
+                                    // Check if message is already decrypted (doesn't look like encrypted text)
+                                    String messageText = message.getMessage();
+                                    if (messageText != null && !messageText.startsWith("U2F") && !messageText.startsWith("eyJ")) {
+                                        // Message is already decrypted, keep as is
+                                        message.setMessage(messageText);
+                                    } else {
+                                        // Message is encrypted, try to decrypt
+                                        try {
+                                            String decryptedmessage = CryptoHelper.decryptWithFallbackKey(messageText);
+                                            message.setMessage(decryptedmessage);
+                                        } catch (Exception e) {
+                                            Log.e(TAG, "Decryption failed: " + e.getMessage());
+                                            message.setMessage("[Encrypted Message - Cannot Decrypt]");
+                                        }
+                                    }
+                                }
+                                // For images, files, and voice messages, keep the URL as is (no decryption needed)
+
                                 messageList.add(message);
                             }
                         }
@@ -265,11 +338,24 @@ public class GroupInboxActivity extends AppCompatActivity {
     private void sendMessage() {
         String message = inputMessage.getText().toString().trim();
         if (!message.isEmpty()) {
+            // Use fallback encryption for text messages
+            String finalEncryptedMessage;
+            try {
+                finalEncryptedMessage = CryptoHelper.encryptWithFallbackKey(message);
+            } catch (Exception e) {
+                Log.e(TAG, "Encryption failed: " + e.getMessage());
+                // If encryption fails, send as plain text
+                finalEncryptedMessage = message;
+            }
+
             String messageId = database.getReference().child("Groups").child(groupId).child("messages").push().getKey();
             if (messageId == null) {
                 Log.e(TAG, "sendMessage: Failed to generate message ID");
                 return;
             }
+
+            // Make the variable effectively final for lambda
+            final String encryptedMessageForLambda = finalEncryptedMessage;
 
             // Get current user's name
             database.getReference().child("user").child(currentUserId).get()
@@ -279,7 +365,7 @@ public class GroupInboxActivity extends AppCompatActivity {
 
                             MessageModel messageModel = new MessageModel();
                             messageModel.setMessageId(messageId);
-                            messageModel.setMessage(message);
+                            messageModel.setMessage(encryptedMessageForLambda);
                             messageModel.setUid(currentUserId);
                             messageModel.setTimestamp(System.currentTimeMillis());
                             messageModel.setGroupMessage(true);
@@ -710,6 +796,20 @@ public class GroupInboxActivity extends AppCompatActivity {
         }
     }
 
+    private void uploadImageToDrive() {
+        checkForGooglePermissions();
+        if (driveServiceHelper == null) {
+            Toast.makeText(this, "Drive Service Helper is null. Setting up Drive connection...", Toast.LENGTH_SHORT).show();
+            driveSetUp();
+            // Try again after setup
+            if (driveServiceHelper == null) {
+                Toast.makeText(this, "Failed to initialize Google Drive. Please try again.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+        uploadImage();
+    }
+
     private void uploadVoiceMessageToDrive() {
         checkForGooglePermissions();
         if (driveServiceHelper == null) {
@@ -764,6 +864,22 @@ public class GroupInboxActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == 123 && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            if (checker.equals("image")) {
+                imagePath = data.getData();
+                uploadImageToDrive();
+            } else if (checker.equals("pdf")) {
+                fileUri = data.getData();
+                uploadFile("pdf");
+            } else if (checker.equals("doc")) {
+                fileUri = data.getData();
+                uploadFile("doc");
+            } else {
+                Toast.makeText(this, "Nothing Selected,Error", Toast.LENGTH_SHORT).show();
+            }
+        }
+
         if (requestCode == REQUEST_CODE_SIGN_IN) {
             handleSignInResult(data);
         }
@@ -783,6 +899,85 @@ public class GroupInboxActivity extends AppCompatActivity {
                     driveServiceHelper = new DriveServiceHelper(googleDriveService, GroupInboxActivity.this);
                 })
                 .addOnFailureListener(exception -> android.util.Log.e(TAG, "Unable to sign in.", exception));
+    }
+
+    private void uploadImage() {
+        GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(getApplicationContext());
+        if (account == null) {
+            Toast.makeText(this, "No Google account signed in. Cannot upload image.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        ProgressDialog progressDialog = new ProgressDialog(this);
+        progressDialog.setTitle("Uploading Image...");
+        progressDialog.show();
+
+        try {
+            // Upload to Google Drive
+            Task<File> uploadTask = driveServiceHelper.uploadFile(imagePath, UUID.randomUUID().toString());
+
+            uploadTask.addOnCompleteListener(new OnCompleteListener<File>() {
+                @Override
+                public void onComplete(@NonNull Task<File> task) {
+                    if (task.isSuccessful()) {
+                        // Retrieve the file's ID and construct the download URL
+                        File uploadedFile = task.getResult();
+                        String fileId = uploadedFile.getId();
+                        final String downloadUrl = "https://drive.google.com/uc?id=" + fileId;
+
+                        // Create a message model for the image message
+                        MessageModel model = new MessageModel(currentUserId, downloadUrl, "img");
+                        model.setTimestamp(System.currentTimeMillis());
+                        model.setGroupMessage(true);
+
+                        // Get sender name
+                        database.getReference().child("user").child(currentUserId)
+                                .addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                                        String senderName = snapshot.child("username").getValue(String.class);
+                                        model.setSenderName(senderName);
+
+                                        // Push message to Firebase
+                                        String key = database.getReference().child("Groups")
+                                                .child(groupId)
+                                                .child("messages")
+                                                .push().getKey();
+
+                                        model.setMessageId(key);
+                                        model.setIsNotified("no");
+
+                                        // Save message to database
+                                        database.getReference().child("Groups")
+                                                .child(groupId)
+                                                .child("messages")
+                                                .child(key)
+                                                .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
+                                            @Override
+                                            public void onSuccess(Void unused) {
+                                                progressDialog.dismiss();
+                                                Toast.makeText(GroupInboxActivity.this, "Image sent successfully!", Toast.LENGTH_SHORT).show();
+                                            }
+                                        });
+                                    }
+
+                                    @Override
+                                    public void onCancelled(@NonNull DatabaseError error) {
+                                        progressDialog.dismiss();
+                                        Toast.makeText(GroupInboxActivity.this, "Failed to get sender name", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                    } else {
+                        progressDialog.dismiss();
+                        Toast.makeText(getApplicationContext(), "Failed to upload image: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        } catch (Exception e) {
+            progressDialog.dismiss();
+            e.printStackTrace();
+            Toast.makeText(getApplicationContext(), "Error during upload: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void uploadVoiceMessage() {
@@ -807,17 +1002,10 @@ public class GroupInboxActivity extends AppCompatActivity {
                         // Get file ID and construct download URL
                         File uploadedFile = task.getResult();
                         String fileId = uploadedFile.getId();
-                        String downloadUrl = "https://drive.google.com/uc?id=" + fileId;
-
-                        // Encrypt the download URL
-                        try {
-                            encryptedMessage = CryptoHelper.encrypt("H@rrY_p0tter_106", downloadUrl);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
+                        final String downloadUrl = "https://drive.google.com/uc?id=" + fileId;
 
                         // Create message model for voice message
-                        MessageModel model = new MessageModel(currentUserId, encryptedMessage, "voice");
+                        MessageModel model = new MessageModel(currentUserId, downloadUrl, "voice");
                         model.setTimestamp(new Date().getTime());
                         model.setGroupMessage(true);
 
@@ -877,5 +1065,81 @@ public class GroupInboxActivity extends AppCompatActivity {
             e.printStackTrace();
             Toast.makeText(getApplicationContext(), "Error during upload: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void uploadFile(String fileType) {
+        ProgressDialog progressDialog = new ProgressDialog(this);
+        progressDialog.setTitle("Uploading File...");
+        progressDialog.show();
+        checkForGooglePermissions();
+
+        try {
+            // Upload file to Google Drive using DriveServiceHelper
+            Task<File> uploadTask = driveServiceHelper.uploadFile(fileUri, getFileNameFromUri(fileUri));
+
+            uploadTask.addOnCompleteListener(new OnCompleteListener<File>() {
+                @Override
+                public void onComplete(@NonNull Task<File> task) {
+                    if (task.isSuccessful()) {
+                        File uploadedFile = task.getResult();
+                        String fileId = uploadedFile.getId();
+                        final String fileUrl = "https://drive.google.com/uc?id=" + fileId;
+
+                        // Create message model and save it to the database
+                        MessageModel model = new MessageModel(currentUserId, fileUrl, fileType);
+                        model.setTimestamp(System.currentTimeMillis());
+                        model.setGroupMessage(true);
+
+                        // Get sender name
+                        database.getReference().child("user").child(currentUserId)
+                                .addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                                        String senderName = snapshot.child("username").getValue(String.class);
+                                        model.setSenderName(senderName);
+
+                                        String key = database.getReference().child("Groups")
+                                                .child(groupId)
+                                                .child("messages")
+                                                .push().getKey();
+                                        model.setMessageId(key);
+                                        model.setIsNotified("no");
+
+                                        // Save the message to Firebase Realtime Database
+                                        database.getReference().child("Groups")
+                                                .child(groupId)
+                                                .child("messages")
+                                                .child(key)
+                                                .setValue(model).addOnSuccessListener(new OnSuccessListener<Void>() {
+                                            @Override
+                                            public void onSuccess(Void unused) {
+                                                progressDialog.dismiss();
+                                                Toast.makeText(GroupInboxActivity.this, "File sent successfully!", Toast.LENGTH_SHORT).show();
+                                            }
+                                        });
+                                    }
+
+                                    @Override
+                                    public void onCancelled(@NonNull DatabaseError error) {
+                                        progressDialog.dismiss();
+                                        Toast.makeText(GroupInboxActivity.this, "Failed to get sender name", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                    } else {
+                        progressDialog.dismiss();
+                        Toast.makeText(getApplicationContext(), "Failed to upload file: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+
+        } catch (Exception e) {
+            progressDialog.dismiss();
+            Toast.makeText(getApplicationContext(), "Error during file upload: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private String getFileNameFromUri(Uri uri) {
+        DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
+        return documentFile.getName();
     }
 }

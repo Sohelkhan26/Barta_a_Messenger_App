@@ -301,7 +301,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (messageModel.getMessageType().equals("pdf")) {
             // Set MIME type for PDFs
             intent.setDataAndType(uri, "application/pdf");
-        } else if (messageModel.equals("docx")) {
+        } else if (messageModel.getMessageType().equals("doc")) {
             // Set MIME type for Word documents
             intent.setDataAndType(uri, "application/msword");
         } else if (messageModel.getMessageType().equals("img")) {
