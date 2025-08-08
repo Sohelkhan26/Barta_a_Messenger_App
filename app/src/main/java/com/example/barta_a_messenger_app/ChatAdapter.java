@@ -288,47 +288,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         String fileUrl = messageModel.getMessage();
 
         if (messageModel.getMessageType().equals("voice")) {
-            // Check if URL is already decrypted (starts with https://)
-            if (fileUrl.startsWith("https://")) {
-                android.util.Log.d("VoicePlayback", "URL already decrypted: " + fileUrl);
-                playVoiceMessage(context, fileUrl);
-            } else {
-                // Try to decrypt voice message URL
-                try {
-                    android.util.Log.d("VoicePlayback", "Attempting to decrypt URL: " + fileUrl.substring(0, Math.min(50, fileUrl.length())) + "...");
-                    String decryptedUrl = CryptoHelper.decrypt("H@rrY_p0tter_106", fileUrl);
-                    android.util.Log.d("VoicePlayback", "Successfully decrypted voice URL: " + decryptedUrl);
-                    // Play voice message with decrypted URL
-                    playVoiceMessage(context, decryptedUrl);
-                } catch (Exception e) {
-                    android.util.Log.e("VoicePlayback", "Failed to decrypt voice URL: " + e.getMessage());
-                    android.util.Log.e("VoicePlayback", "Original URL length: " + fileUrl.length());
-
-                    // Try to play directly if decryption fails (for backward compatibility)
-                    android.util.Log.d("VoicePlayback", "Trying to play URL directly as fallback");
-                    playVoiceMessage(context, fileUrl);
-                }
-            }
+            // Voice messages are now stored as plain URLs
+            playVoiceMessage(context, fileUrl);
             return;
         }
 
-        // Decrypt file URL for other file types
-        String decryptedFileUrl = fileUrl;
-        try {
-            if (messageModel.getMessageType().equals("img")
-                    || messageModel.getMessageType().equals("pdf")
-                    || messageModel.getMessageType().equals("docx")) {
-                decryptedFileUrl = CryptoHelper.decrypt("H@rrY_p0tter_106", fileUrl);
-                android.util.Log.d("FileDecrypt", "Decrypted file URL: " + decryptedFileUrl);
-            }
-        } catch (Exception e) {
-            android.util.Log.e("FileDecrypt", "Failed to decrypt file URL: " + e.getMessage());
-            Toast.makeText(context, "Failed to decrypt file", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
+        // For images, PDFs, and documents, URLs are now stored as plain text
+        // No decryption needed
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        Uri uri = Uri.parse(decryptedFileUrl);
+        Uri uri = Uri.parse(fileUrl);
 
         if (messageModel.getMessageType().equals("pdf")) {
             // Set MIME type for PDFs

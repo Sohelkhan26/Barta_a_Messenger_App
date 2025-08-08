@@ -30,7 +30,7 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
     private static final String EXTRA_SENDER_ID = "sender_id";
     private static final String EXTRA_RECEIVER_ID = "receiver_id";
     private static final String EXTRA_SELECTED_MESSAGES = "selected_messages";
-    
+
     private AppCompatImageView backButton;
     private TextView titleTextView;
     private TextView selectedCountTextView;
@@ -45,14 +45,14 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
     private ArrayList<ForwardContact> allContacts;
     private ArrayList<ForwardContact> selectedContacts;
     private ArrayList<MessageModel> messagesToForward;
-    
+
     private String senderId;
     private String receiverId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
         try {
             setContentView(R.layout.activity_forward_contacts);
 
@@ -66,9 +66,9 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
             receiverId = intent.getStringExtra(EXTRA_RECEIVER_ID);
             messagesToForward = (ArrayList<MessageModel>) intent.getSerializableExtra(EXTRA_SELECTED_MESSAGES);
 
-            android.util.Log.d("ForwardContactsActivity", "onCreate - senderId: " + senderId + 
-                ", receiverId: " + receiverId + 
-                ", messages: " + (messagesToForward != null ? messagesToForward.size() : "null"));
+            android.util.Log.d("ForwardContactsActivity", "onCreate - senderId: " + senderId
+                    + ", receiverId: " + receiverId
+                    + ", messages: " + (messagesToForward != null ? messagesToForward.size() : "null"));
 
             // Validate required data
             if (senderId == null || senderId.isEmpty()) {
@@ -77,7 +77,7 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
                 finish();
                 return;
             }
-            
+
             if (messagesToForward == null || messagesToForward.isEmpty()) {
                 android.util.Log.e("ForwardContactsActivity", "No messages to forward");
                 Toast.makeText(this, "Error: No messages to forward", Toast.LENGTH_SHORT).show();
@@ -91,16 +91,16 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
 
             // Initialize views
             initViews();
-            
+
             // Set up RecyclerView
             setupRecyclerView();
-            
+
             // Set up click listeners
             setupClickListeners();
-            
+
             // Load contacts
             loadContacts();
-            
+
         } catch (Exception e) {
             android.util.Log.e("ForwardContactsActivity", "Error in onCreate: " + e.getMessage());
             e.printStackTrace();
@@ -162,7 +162,7 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
                         allContacts.clear();
-                        
+
                         if (!snapshot.exists() || snapshot.getChildrenCount() == 0) {
                             showNoContacts();
                             return;
@@ -173,7 +173,7 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
 
                         for (DataSnapshot contactSnapshot : snapshot.getChildren()) {
                             String contactId = contactSnapshot.getKey();
-                            
+
                             // Skip the current receiver to avoid self-forwarding to same person
                             if (contactId != null && !contactId.equals(receiverId)) {
                                 // Get user details from user node
@@ -182,12 +182,12 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
                                             @Override
                                             public void onDataChange(@NonNull DataSnapshot userSnapshot) {
                                                 processedContacts[0]++;
-                                                
+
                                                 if (userSnapshot.exists()) {
                                                     String username = userSnapshot.child("username").getValue(String.class);
                                                     String profilePic = userSnapshot.child("profilePic").getValue(String.class);
                                                     String status = userSnapshot.child("status").getValue(String.class);
-                                                    
+
                                                     if (username != null) {
                                                         ForwardContact contact = new ForwardContact(
                                                                 contactId,
@@ -210,7 +210,7 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
                                             public void onCancelled(@NonNull DatabaseError error) {
                                                 processedContacts[0]++;
                                                 Log.e("ForwardContacts", "Error loading user: " + error.getMessage());
-                                                
+
                                                 if (processedContacts[0] >= totalContacts - 1) {
                                                     updateContactsList();
                                                 }
@@ -236,7 +236,7 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
     private void updateContactsList() {
         runOnUiThread(() -> {
             progressBar.setVisibility(View.GONE);
-            
+
             if (allContacts.isEmpty()) {
                 showNoContacts();
             } else {
@@ -298,7 +298,7 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
         // Show progress
         forwardButton.setEnabled(false);
         forwardButton.setText("Forwarding...");
-        
+
         final int totalForwards = selectedContacts.size() * messagesToForward.size();
         final int[] completedForwards = {0};
 
@@ -306,14 +306,14 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
             for (MessageModel message : messagesToForward) {
                 forwardMessageTo(contact.getUid(), message, () -> {
                     completedForwards[0]++;
-                    
+
                     // Check if all forwards are complete
                     if (completedForwards[0] >= totalForwards) {
                         runOnUiThread(() -> {
-                            Toast.makeText(ForwardContactsActivity.this, 
-                                "Messages forwarded successfully to " + selectedContacts.size() + " contact(s)", 
-                                Toast.LENGTH_LONG).show();
-                            
+                            Toast.makeText(ForwardContactsActivity.this,
+                                    "Messages forwarded successfully to " + selectedContacts.size() + " contact(s)",
+                                    Toast.LENGTH_LONG).show();
+
                             // Set result and finish
                             setResult(RESULT_OK);
                             finish();
@@ -327,27 +327,18 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
     private void forwardMessageTo(String recipientUID, MessageModel message, Runnable onComplete) {
         if (recipientUID == null) {
             Log.e("ForwardContacts", "Recipient UID is null");
-            if (onComplete != null) onComplete.run();
+            if (onComplete != null) {
+                onComplete.run();
+            }
             return;
         }
 
         try {
             Log.d("ForwardContacts", "Forwarding message to UID: " + recipientUID);
 
-            // Encrypt message with recipient's specific key
-            EncryptionKeyManager keyManager = new EncryptionKeyManager(this);
-            String tempEncryptedMsg = keyManager.encryptForFriend(recipientUID, message.getMessage());
-            
-            // If friend-specific key not found, use fallback key for compatibility
-            final String encryptedMsg;
-            if (tempEncryptedMsg == null) {
-                encryptedMsg = CryptoHelper.encryptWithFallbackKey(message.getMessage());
-                Log.w("ForwardContacts", "Using fallback encryption for forwarding to recipient: " + recipientUID);
-            } else {
-                encryptedMsg = tempEncryptedMsg;
-            }
-            
-            keyManager.close();
+            // For forwarding, keep the original encrypted message as is
+            // No need to re-encrypt
+            final String encryptedMsg = message.getMessage();
 
             // Generate key for Firebase
             String key = database.child("chats")
@@ -356,7 +347,9 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
                     .push().getKey();
 
             if (key == null) {
-                if (onComplete != null) onComplete.run();
+                if (onComplete != null) {
+                    onComplete.run();
+                }
                 return;
             }
 
@@ -385,21 +378,29 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
                                 .addOnSuccessListener(v -> {
                                     // Update sender's contacts
                                     updateContactInfo(senderId, recipientUID, encryptedMsg, "You", forwardedMessage.getTimestamp(), "true");
-                                    if (onComplete != null) onComplete.run();
+                                    if (onComplete != null) {
+                                        onComplete.run();
+                                    }
                                 })
                                 .addOnFailureListener(e -> {
                                     Log.e("ForwardContacts", "Error saving to sender: " + e.getMessage());
-                                    if (onComplete != null) onComplete.run();
+                                    if (onComplete != null) {
+                                        onComplete.run();
+                                    }
                                 });
                     })
                     .addOnFailureListener(e -> {
                         Log.e("ForwardContacts", "Error saving to recipient: " + e.getMessage());
-                        if (onComplete != null) onComplete.run();
+                        if (onComplete != null) {
+                            onComplete.run();
+                        }
                     });
 
         } catch (Exception e) {
             Log.e("ForwardContacts", "Error forwarding message: " + e.getMessage());
-            if (onComplete != null) onComplete.run();
+            if (onComplete != null) {
+                onComplete.run();
+            }
         }
     }
 
@@ -436,20 +437,20 @@ public class ForwardContactsActivity extends AppCompatActivity implements Forwar
                 android.util.Log.e("ForwardContactsActivity", "Activity is null");
                 return;
             }
-            
+
             if (senderId == null || senderId.isEmpty()) {
                 android.util.Log.e("ForwardContactsActivity", "Sender ID is null or empty");
                 return;
             }
-            
+
             if (selectedMessages == null || selectedMessages.isEmpty()) {
                 android.util.Log.e("ForwardContactsActivity", "Selected messages is null or empty");
                 return;
             }
-            
-            android.util.Log.d("ForwardContactsActivity", "Starting activity with senderId: " + senderId + 
-                ", receiverId: " + receiverId + ", messages: " + selectedMessages.size());
-                
+
+            android.util.Log.d("ForwardContactsActivity", "Starting activity with senderId: " + senderId
+                    + ", receiverId: " + receiverId + ", messages: " + selectedMessages.size());
+
             Intent intent = new Intent(activity, ForwardContactsActivity.class);
             intent.putExtra(EXTRA_SENDER_ID, senderId);
             intent.putExtra(EXTRA_RECEIVER_ID, receiverId);

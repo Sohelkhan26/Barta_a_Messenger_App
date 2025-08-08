@@ -153,10 +153,23 @@ public class HomeScreen extends BaseActivity {
                                                 if (ds.exists()) {
                                                     sendername = ds.child("username").getValue(String.class);
 
-                                                    try {
-                                                        decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106", message.getMessage());
-                                                    } catch (Exception e) {
-                                                        throw new RuntimeException(e);
+                                                    // For text messages, decrypt the content
+                                                    if (message.getMessageType() == null || message.getMessageType().equals("msg")) {
+                                                        String messageText = message.getMessage();
+                                                        if (messageText != null && !messageText.startsWith("U2F") && !messageText.startsWith("eyJ")) {
+                                                            // Message is already decrypted
+                                                            decryptedmessage = messageText;
+                                                        } else {
+                                                            // Message is encrypted, try to decrypt
+                                                            try {
+                                                                decryptedmessage = CryptoHelper.decryptWithFallbackKey(messageText);
+                                                            } catch (Exception e) {
+                                                                decryptedmessage = "[Encrypted Message - Cannot Decrypt]";
+                                                            }
+                                                        }
+                                                    } else {
+                                                        // For media messages (images, files, voice), show appropriate notification
+                                                        decryptedmessage = "sent a " + message.getMessageType();
                                                     }
 
                                                     new NotificationHelper().notificationDialog(HomeScreen.this, decryptedmessage, sendername);

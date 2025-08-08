@@ -43,13 +43,25 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
         try {
             String lastMessage = contact.getLast_message();
             if (lastMessage != null && !lastMessage.isEmpty()) {
-                decryptedmessage = CryptoHelper.decrypt("H@rrY_p0tter_106", lastMessage);
+                // Check if it's a media message (starts with "sent a")
+                if (lastMessage.startsWith("sent a")) {
+                    decryptedmessage = lastMessage; // Keep as is for media messages
+                } else {
+                    // Check if message is already decrypted
+                    if (lastMessage != null && !lastMessage.startsWith("U2F") && !lastMessage.startsWith("eyJ")) {
+                        // Message is already decrypted
+                        decryptedmessage = lastMessage;
+                    } else {
+                        // Try to decrypt text messages
+                        decryptedmessage = CryptoHelper.decryptWithFallbackKey(lastMessage);
+                    }
+                }
             } else {
                 decryptedmessage = "";
             }
         } catch (Exception e) {
             Log.d("ChatListAdapter ", e.getMessage());
-            decryptedmessage = "";
+            decryptedmessage = "[Encrypted Message]";
         }
 
         String lastMessage = contact.getLast_message();
@@ -127,14 +139,14 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
                     Intent intent = new Intent(c, InboxActivity.class);
                     int position = getAdapterPosition();
                     Contact contact = list.get(position);
-                    
+
                     // Add null check for contact uid
                     String contactUid = contact.getUid();
                     if (contactUid == null || contactUid.isEmpty()) {
                         Log.e("ChatListAdapter", "Contact UID is null or empty, cannot open chat");
                         return; // Don't start activity if UID is null
                     }
-                    
+
                     intent.putExtra("uid", contactUid);
                     intent.putExtra("name", contact.getFull_name());
                     intent.putExtra("profilePic", contact.getProfilePic());
