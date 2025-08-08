@@ -1,0 +1,5 @@
+dependencies {
+    // ...existing dependencies...
+    implementation 'androidx.exifinterface:exifinterface:1.3.6' // Replace com.android.support:exifinterface
+    // Ensure all other dependencies are using androidx equivalents
+}

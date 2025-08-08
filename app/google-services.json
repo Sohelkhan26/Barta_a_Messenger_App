@@ -1,0 +1,56 @@
+{
+  "project_info": {
+    "project_number": "678763509023",
+    "firebase_url": "https://barta-8ccef-default-rtdb.firebaseio.com",
+    "project_id": "barta-8ccef",
+    "storage_bucket": "barta-8ccef.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:678763509023:android:44b129c32c190abfcb2c2a",
+        "android_client_info": {
+          "package_name": "com.example.barta_a_messenger_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "678763509023-jh4adprj836pbh0sduanptt1a78phv6s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.barta_a_messenger_app",
+            "certificate_hash": "b87104f232cc738a54e7a9ec31241cfe0fb6cb4e"
+          }
+        },
+        {
+          "client_id": "678763509023-ra84v3vvgfo8krv6gu3s79uu2dheflar.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.barta_a_messenger_app",
+            "certificate_hash": "a09468e4025c17a051a32ad74dd5cedb461c02a4"
+          }
+        },
+        {
+          "client_id": "678763509023-4ldok3fqmt4tqvc37asvfb6ajnrf5igs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4N5tkdAYPnW5Iir9PQQq_qQrb7msjlgw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "678763509023-4ldok3fqmt4tqvc37asvfb6ajnrf5igs.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
