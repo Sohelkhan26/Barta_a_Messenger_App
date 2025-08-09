@@ -17,6 +17,7 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.Button;
+import android.widget.LinearLayout;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.documentfile.provider.DocumentFile;
@@ -67,13 +68,14 @@ import java.util.UUID;
 
 import com.example.barta_a_messenger_app.CryptoHelper;
 
-public class GroupInboxActivity extends AppCompatActivity {
+public class GroupInboxActivity extends AppCompatActivity implements ChatAdapter.OnMessageSelectListener {
 
     private static final String TAG = "GroupInboxActivity";
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
     private static final int RC_AUTHORIZE_DRIVE = 10943;
     private static final int REQUEST_CODE_SIGN_IN = 1;
     private static final int REQUEST_CODE_OPEN_DOCUMENT = 2;
+    private static final int REQUEST_CODE_FORWARD_CONTACTS = 300;
 
     private TextView groupNameTextView;
     private RecyclerView chatRecyclerView;
@@ -121,6 +123,12 @@ public class GroupInboxActivity extends AppCompatActivity {
     private ContactAdapter contactAdapter;
     private ArrayList<Contact> selectedContacts = new ArrayList<>();
 
+    // Forward and Delete functionality
+    private ArrayList<MessageModel> selectedMessages;
+    private Button forwardButton;
+    private Button deleteButton;
+    private LinearLayout actionButtonsLayout;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -155,6 +163,12 @@ public class GroupInboxActivity extends AppCompatActivity {
         groupImageView = findViewById(R.id.groupImageView);
         membersRecyclerView = findViewById(R.id.membersRecyclerView);
         membersButton = findViewById(R.id.membersButton);
+
+        // Initialize forward and delete functionality
+        selectedMessages = new ArrayList<>();
+        actionButtonsLayout = findViewById(R.id.actionButtonsLayout);
+        forwardButton = findViewById(R.id.forwardButton);
+        deleteButton = findViewById(R.id.deleteButton);
 
         // Initialize drawer layout
         drawerLayout = findViewById(R.id.drawer_layout);
@@ -198,17 +212,7 @@ public class GroupInboxActivity extends AppCompatActivity {
         // Setup RecyclerView
         messageList = new ArrayList<>();
         chatAdapter = new ChatAdapter(messageList, this, groupId);
-        chatAdapter.setOnMessageSelectListener(new ChatAdapter.OnMessageSelectListener() {
-            @Override
-            public void onMessageSelectModeActivated() {
-                // Handle message selection mode activation
-            }
-
-            @Override
-            public void onMessageSelected(ArrayList<MessageModel> messages) {
-                // Handle message selection
-            }
-        });
+        chatAdapter.setOnMessageSelectListener(this);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
 
@@ -285,6 +289,19 @@ public class GroupInboxActivity extends AppCompatActivity {
         // Set up Add Member button click
         addMemberButton.setOnClickListener(v -> {
             showContactsDialog();
+        });
+
+        // Set up forward and delete button click listeners
+        setupForwardAndDeleteButtons();
+
+        // Set up back button click listener
+        backButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(GroupInboxActivity.this, HomeScreen.class);
+                startActivity(intent);
+                finish();
+            }
         });
     }
 
@@ -632,14 +649,67 @@ public class GroupInboxActivity extends AppCompatActivity {
         });
     }
 
-    public void onContactSelected(Contact contact) {
-        if (!selectedContacts.contains(contact)) {
-            selectedContacts.add(contact);
+    @Override
+    public void onMessageSelectModeActivated() {
+        if (selectedMessages == null) {
+            selectedMessages = new ArrayList<>();
+        }
+        actionButtonsLayout.setVisibility(View.VISIBLE);
+        forwardButton.setVisibility(View.VISIBLE);
+        deleteButton.setVisibility(View.VISIBLE);
+        // Hide other top bar elements
+        findViewById(R.id.groupName).setVisibility(View.INVISIBLE);
+        findViewById(R.id.groupImageView).setVisibility(View.INVISIBLE);
+        findViewById(R.id.imageBack).setVisibility(View.INVISIBLE);
+        findViewById(R.id.inboxInfo).setVisibility(View.INVISIBLE);
+    }
+
+    @Override
+    public void onMessageSelected(ArrayList<MessageModel> messages) {
+        selectedMessages = messages;
+        if (messages.size() > 0) {
+            actionButtonsLayout.setVisibility(View.VISIBLE);
+            forwardButton.setVisibility(View.VISIBLE);
+            deleteButton.setVisibility(View.VISIBLE);
+            // Hide other top bar elements
+            findViewById(R.id.groupName).setVisibility(View.INVISIBLE);
+            findViewById(R.id.groupImageView).setVisibility(View.INVISIBLE);
+            findViewById(R.id.imageBack).setVisibility(View.INVISIBLE);
+            findViewById(R.id.inboxInfo).setVisibility(View.INVISIBLE);
+        } else {
+            actionButtonsLayout.setVisibility(View.GONE);
+            forwardButton.setVisibility(View.GONE);
+            deleteButton.setVisibility(View.GONE);
+            // Show other top bar elements
+            findViewById(R.id.groupName).setVisibility(View.VISIBLE);
+            findViewById(R.id.groupImageView).setVisibility(View.VISIBLE);
+            findViewById(R.id.imageBack).setVisibility(View.VISIBLE);
+            findViewById(R.id.inboxInfo).setVisibility(View.VISIBLE);
+            chatAdapter.clearSelection();
         }
     }
 
-    public void onContactDeselected(Contact contact) {
-        selectedContacts.remove(contact);
+    public void onMessageDeselected(MessageModel message) {
+        selectedMessages.remove(message);
+        if (selectedMessages.size() == 0) {
+            actionButtonsLayout.setVisibility(View.GONE);
+        }
+    }
+
+    private void deleteMessage(MessageModel message) {
+        String messageId = message.getMessageId();
+        if (messageId != null) {
+            database.getReference().child("Groups").child(groupId).child("messages").child(messageId)
+                    .removeValue()
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "Message deleted successfully: " + messageId);
+                        Toast.makeText(GroupInboxActivity.this, "Message deleted", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to delete message: " + e.getMessage());
+                        Toast.makeText(GroupInboxActivity.this, "Failed to delete message", Toast.LENGTH_SHORT).show();
+                    });
+        }
     }
 
     // Voice Recording Methods
@@ -882,6 +952,44 @@ public class GroupInboxActivity extends AppCompatActivity {
 
         if (requestCode == REQUEST_CODE_SIGN_IN) {
             handleSignInResult(data);
+        }
+
+        if (requestCode == REQUEST_CODE_FORWARD_CONTACTS) {
+            if (resultCode == RESULT_OK) {
+                // Messages were forwarded successfully
+                // Hide the action buttons and clear selection
+                actionButtonsLayout.setVisibility(View.GONE);
+                forwardButton.setVisibility(View.GONE);
+                deleteButton.setVisibility(View.GONE);
+
+                // Show other top bar elements
+                findViewById(R.id.groupName).setVisibility(View.VISIBLE);
+                findViewById(R.id.groupImageView).setVisibility(View.VISIBLE);
+                findViewById(R.id.imageBack).setVisibility(View.VISIBLE);
+                findViewById(R.id.inboxInfo).setVisibility(View.VISIBLE);
+
+                // Clear selection in adapter
+                chatAdapter.clearSelection();
+                selectedMessages.clear();
+            }
+            // If RESULT_CANCELED, user cancelled the forwarding, keep selection as is
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (actionButtonsLayout.getVisibility() == View.VISIBLE) {
+            actionButtonsLayout.setVisibility(View.GONE);
+            forwardButton.setVisibility(View.GONE);
+            deleteButton.setVisibility(View.GONE);
+            // Show other top bar elements
+            findViewById(R.id.groupName).setVisibility(View.VISIBLE);
+            findViewById(R.id.groupImageView).setVisibility(View.VISIBLE);
+            findViewById(R.id.imageBack).setVisibility(View.VISIBLE);
+            findViewById(R.id.inboxInfo).setVisibility(View.VISIBLE);
+            chatAdapter.clearSelection();
+        } else {
+            super.onBackPressed();
         }
     }
 
@@ -1141,5 +1249,67 @@ public class GroupInboxActivity extends AppCompatActivity {
     private String getFileNameFromUri(Uri uri) {
         DocumentFile documentFile = DocumentFile.fromSingleUri(this, uri);
         return documentFile.getName();
+    }
+
+    private void setupForwardAndDeleteButtons() {
+        forwardButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (selectedMessages.size() > 0) {
+                    try {
+                        // Launch the forward contacts activity
+                        Log.d(TAG, "Starting ForwardContactsActivity with " + selectedMessages.size() + " messages");
+                        ForwardContactsActivity.startForForward(
+                                GroupInboxActivity.this,
+                                currentUserId,
+                                groupId, // Use groupId as receiverId for groups
+                                selectedMessages,
+                                REQUEST_CODE_FORWARD_CONTACTS
+                        );
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error starting ForwardContactsActivity: " + e.getMessage());
+                        e.printStackTrace();
+                        Toast.makeText(GroupInboxActivity.this, "Error starting forward activity", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(GroupInboxActivity.this, "No messages selected", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        deleteButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (selectedMessages.size() > 0) {
+                    new AlertDialog.Builder(GroupInboxActivity.this)
+                            .setTitle("Delete Messages")
+                            .setMessage("Are you sure you want to delete selected messages?")
+                            .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    for (MessageModel message : selectedMessages) {
+                                        deleteMessage(message);
+                                    }
+                                    chatAdapter.clearSelection();
+                                    actionButtonsLayout.setVisibility(View.GONE);
+                                }
+                            })
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                } else {
+                    Toast.makeText(GroupInboxActivity.this, "No messages selected", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+
+    public void onContactSelected(Contact contact) {
+        if (!selectedContacts.contains(contact)) {
+            selectedContacts.add(contact);
+        }
+    }
+
+    public void onContactDeselected(Contact contact) {
+        selectedContacts.remove(contact);
     }
 }

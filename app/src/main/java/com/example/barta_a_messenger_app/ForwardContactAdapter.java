@@ -21,7 +21,9 @@ public class ForwardContactAdapter extends RecyclerView.Adapter<ForwardContactAd
     private OnContactSelectListener listener;
 
     public interface OnContactSelectListener {
+
         void onContactSelected(ForwardContact contact);
+
         void onContactDeselected(ForwardContact contact);
     }
 
@@ -41,10 +43,10 @@ public class ForwardContactAdapter extends RecyclerView.Adapter<ForwardContactAd
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         ForwardContact contact = contacts.get(position);
-        
+
         holder.nameTextView.setText(contact.getName());
         holder.statusTextView.setText(contact.getStatus());
-        
+
         // Load profile picture
         if (contact.getProfilePic() != null && !contact.getProfilePic().isEmpty()) {
             Picasso.get()
@@ -59,13 +61,13 @@ public class ForwardContactAdapter extends RecyclerView.Adapter<ForwardContactAd
         // Set checkbox state
         holder.checkBox.setOnCheckedChangeListener(null); // Clear listener to avoid unwanted triggers
         holder.checkBox.setChecked(contact.isSelected());
-        
+
         // Set up click listeners
         View.OnClickListener clickListener = v -> {
             boolean newState = !contact.isSelected();
             contact.setSelected(newState);
             holder.checkBox.setChecked(newState);
-            
+
             if (newState) {
                 listener.onContactSelected(contact);
             } else {
@@ -99,6 +101,7 @@ public class ForwardContactAdapter extends RecyclerView.Adapter<ForwardContactAd
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
+
         CircleImageView profileImageView;
         TextView nameTextView;
         TextView statusTextView;

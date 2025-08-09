@@ -1,6 +1,7 @@
 package com.example.barta_a_messenger_app;
 
 public class ForwardContact {
+
     private String uid;
     private String name;
     private String profilePic;
@@ -62,8 +63,12 @@ public class ForwardContact {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
         ForwardContact that = (ForwardContact) obj;
         return uid != null ? uid.equals(that.uid) : that.uid == null;
     }
