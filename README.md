@@ -127,6 +127,8 @@ app/google-services.json
 <string name="web_client_id">YOUR_WEB_CLIENT_ID</string>
 ```
 
+You can find this value in **Google Cloud Console → APIs and Services → Credentials → OAuth 2.0 Client IDs** (Web client). Use the full client ID string (typically ending with `.apps.googleusercontent.com`).
+
 ### Step 5: Build & Run
 
 From Android Studio:
@@ -137,7 +139,7 @@ From Android Studio:
 From terminal (optional):
 
 ```bash
-bash ./gradlew assembleDebug
+./gradlew assembleDebug
 ```
 
 ---
@@ -169,7 +171,7 @@ Available project screenshots:
 ## 8) Challenges & Solutions
 
 - **Google Sign-In + Firebase OAuth setup complexity**
-  - Solved by configuring SHA fingerprints, OAuth client, and `web_client_id` correctly.
+  - Solved by fixing authentication failures caused by mismatched SHA fingerprints and incorrect OAuth client/web client ID mapping.
 - **Real-time sync and local message continuity**
   - Combined Firebase real-time listeners with local SQLite helpers for smoother chat persistence.
 - **Media/file compatibility and dependency conflicts**
